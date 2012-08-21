@@ -1,0 +1,114 @@
+﻿<!--
+  Copyright 2011 Kurtis L. Nusbaum
+
+  This file is part of UDJ.
+
+  UDJ is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 2 of the License, or
+  (at your option) any later version.
+
+  UDJ is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with UDJ.  If not, see <http://www.gnu.org/licenses/>.
+-->
+    <phone:PhoneApplicationPage 
+    x:Class="UDJ.FindPlayer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:phone="clr-namespace:Microsoft.Phone.Controls;assembly=Microsoft.Phone"
+    xmlns:shell="clr-namespace:Microsoft.Phone.Shell;assembly=Microsoft.Phone"
+    xmlns:controls="clr-namespace:Microsoft.Phone.Controls;assembly=Microsoft.Phone.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+    xmlns:localControls="clr-namespace:Microsoft.Phone.Controls"
+    mc:Ignorable="d" d:DesignWidth="480" d:DesignHeight="768"
+    FontFamily="{StaticResource PhoneFontFamilyNormal}"
+    FontSize="{StaticResource PhoneFontSizeNormal}"
+    Foreground="{StaticResource PhoneForegroundBrush}"
+    SupportedOrientations="Portrait"  Orientation="Portrait"
+    shell:SystemTray.IsVisible="True">
+
+    <!--LayoutRoot is the root grid where all page content is placed-->
+    <Grid x:Name="LayoutRoot" Background="Transparent">
+        <localControls:CustomPerformanceProgressBar VerticalAlignment="Top" IsLoading="{Binding IsLoading}" x:Name="loadingProgressBar"/>
+        <!--Pivot Control-->
+        <controls:Pivot Title="UDJ">
+            <!--Pivot item one-->
+            <controls:PivotItem Header="Nearby">
+                <Grid>
+                    <ListBox Height="527" ItemsSource="{Binding Mode=OneWay}" HorizontalAlignment="Left" Margin="6,-5,0,0" Name="playerListBox" VerticalAlignment="Top" Width="451" SelectionChanged="playerListBox_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" >
+                                    <TextBlock Name="playersText" Margin="0,10,0,0" Text="{Binding name}" FontSize="34" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        
+                    </ListBox>
+                    <TextBlock Height="50" HorizontalAlignment="Left" Margin="9,34,0,0" Name="loadingTextBlock" FontSize="34" Text="Loading..." VerticalAlignment="Top" Width="220" />
+                  <!--  <Button Content="Logout" Height="72" HorizontalAlignment="Center" Name="logoutButton" VerticalAlignment="Bottom" Width="160" Tap="logoutTextBlock_Tap"/> -->
+                    
+                </Grid>
+                
+            </controls:PivotItem>
+
+            <!--Pivot item two-->
+            <controls:PivotItem Header="Recent">
+                <Grid>
+
+                    <ListBox Height="596" ItemsSource="{Binding Mode=OneWay}" HorizontalAlignment="Left" Margin="6,-5,0,0" Name="recentPlayerListBox" VerticalAlignment="Top" Width="451" SelectionChanged="playerListBox_SelectionChanged" MaxHeight="300">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" >
+                                <TextBlock Name="playersText" Margin="0,10,0,0" Text="{Binding name}" FontSize="34" Foreground="White" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Height="74" FontSize="26" HorizontalAlignment="Left" Margin="24,50,0,0" Name="noRecentTextBlock" Visibility="Collapsed" Text="It appears you have no recent players.&#x0a;Flick left or right to see more!" VerticalAlignment="Top" Width="429" />
+                    
+                </Grid>
+            </controls:PivotItem>
+    
+    <controls:PivotItem Header="Favorites">
+        <Grid>
+                    <!-- Hold="favPlayerListBox_Hold" -->
+                    <ListBox Height="740" ItemsSource="{Binding Mode=OneWay}" HorizontalAlignment="Left" Margin="2,11,0,0" Name="favPlayersListBox" VerticalAlignment="Top" Width="451" SelectionChanged="playerListBox_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" >
+                                    <TextBlock Name="playersText"  Margin="0,10,0,0" Text="{Binding name}" FontSize="34" Hold="playersText_Hold" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+                    <TextBlock Height="74" FontSize="26" HorizontalAlignment="Left" Margin="24,50,0,0" Name="noFavTextBlock" Visibility="Collapsed" Text="It appears you have no favorite players.&#x0a;Flick left or right to see more!" VerticalAlignment="Top" Width="429" />
+                    <TextBlock Height="74" HorizontalAlignment="Center" FontSize="18" Margin="3,520,0,0" Name="holdTextBlock" Text="Tip: Hold an player down to remove it from favorites!" VerticalAlignment="Top" Width="452" />
+                </Grid>
+    </controls:PivotItem>
+    
+    </controls:Pivot>
+        <Rectangle Height="317" HorizontalAlignment="Left" Margin="-1,-1,0,0" Name="passwordRect" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top" Width="481" Visibility="Collapsed" Fill="#D9000000"></Rectangle>
+        <TextBlock Height="46" HorizontalAlignment="Left" Margin="22,12,0,0" Name="passwordTitle" Text="The Player is Password Protected" VerticalAlignment="Top" FontSize="30" Width="446" Visibility="Collapsed" />
+        <TextBlock Height="30" HorizontalAlignment="Left" Margin="22,107,0,0" Name="passwordLabel" Text="Please enter the password here" VerticalAlignment="Top" Visibility="Collapsed" />
+        <PasswordBox Height="72" HorizontalAlignment="Left" Margin="0,129,0,0" Name="password" VerticalAlignment="Top" Width="460" Visibility="Collapsed" />
+        <Button Content="Submit" Height="76" HorizontalAlignment="Left" Margin="146,207,0,0" Name="passwordButton" VerticalAlignment="Top" Width="162" Visibility="Collapsed" Click="passwordButton_Click" />
+        <!--Sample code showing usage of ApplicationBar-->
+    <!--<phone:PhoneApplicationPage.ApplicationBar>
+        <shell:ApplicationBar IsVisible="True" IsMenuEnabled="True">
+            <shell:ApplicationBarIconButton x:Name="appbar_button1" IconUri="/Images/appbar_button1.png" Text="Button 1"/>
+            <shell:ApplicationBarIconButton x:Name="appbar_button2" IconUri="/Images/appbar_button2.png" Text="Button 2"/>
+            <shell:ApplicationBar.MenuItems>
+                <shell:ApplicationBarMenuItem x:Name="menuItem1" Text="MenuItem 1"/>
+                <shell:ApplicationBarMenuItem x:Name="menuItem2" Text="MenuItem 2"/>
+            </shell:ApplicationBar.MenuItems>
+        </shell:ApplicationBar>
+    </phone:PhoneApplicationPage.ApplicationBar>-->
+    </Grid>
+</phone:PhoneApplicationPage>
