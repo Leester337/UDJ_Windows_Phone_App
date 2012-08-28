@@ -127,13 +127,15 @@ namespace UDJ
             } */
         }
 
+
+        
         public void loginToEvent()
         {
 
             string statusCode = "";
             IsolatedStorageSettings settings = IsolatedStorageSettings.ApplicationSettings;
 
-            var client = new RestClient("https://udjplayer.com:4897/udj/");
+            var client = new RestClient("https://udjplayer.com:4897/udj/0_6");
             var request = new RestRequest("auth", Method.POST);
 
             request.AddParameter("username", currentUser.username);
@@ -148,7 +150,7 @@ namespace UDJ
                 {
                     AuthResponse userInfo = response.Data;
                     currentUser.hashID = userInfo.ticket_hash;
-                    currentUser.id = Convert.ToInt64(userInfo.user_id);
+                    currentUser.id = userInfo.user_id;
                     currentUser.hashCreated = DateTime.Now; //set hashCreated to now
                     // DateTime hashCreatedEcho = hashCreated; 
                     string hashIDString = currentUser.hashID;
@@ -158,7 +160,7 @@ namespace UDJ
                 }
                 else if (statusCode == "NotFound")
                 {
-                    MessageBox.Show("It would be in your best interests to try again. Check your username or wifis!");
+                    MessageBox.Show("It would be in your best interests to try again. Check your wifis!");
                     progressBar.IsLoading = false;
                 }
 

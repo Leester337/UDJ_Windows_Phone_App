@@ -32,12 +32,24 @@ namespace UDJ
 {
     public class LibraryEntry
     {
-        public long id { get; set; }
+        public string id { get; set; }
         public string title { get; set; }
         public string artist { get; set; }
         public string album { get; set; }
         public int track { get; set; }
         public string genre { get; set; }
         public int duration { get; set; }
+        public Visibility isVisible
+        {
+            get
+            {
+                return album != "" ? Visibility.Visible : Visibility.Collapsed;
+            }
+            set
+            {
+                isVisible = value;
+            }
+        }
+
     }
 }

@@ -105,10 +105,9 @@ namespace UDJ
             currentUser.isAtPlayer = true;
             minClientReqID = Convert.ToInt64(settings["minClientReqID"]);
             checkBackgroundColor();
+            getArtists();
+         
             base.OnNavigatedTo(e);
-
-            
-            updateNowPlaying();
         }
 
 
@@ -117,7 +116,7 @@ namespace UDJ
             if (searchTitle.Visibility == System.Windows.Visibility.Visible)
                 searchTitle.Visibility = System.Windows.Visibility.Collapsed;
             string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/players/" + connectedPlayer.id;
+            string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
             var client = new RestClient(url);
             var request = new RestRequest("active_playlist", Method.GET);
             request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
@@ -128,16 +127,30 @@ namespace UDJ
                 statusCode = responseUpdate.StatusCode.ToString();
                 string statuscodestring = statusCode;
 
-                if (statusCode != "OK")
+                
+
+                if (statusCode == "Unauthorized")
+                {
+                    for (int i = 0; i < responseUpdate.Headers.Count; i++)
+                    {
+                        if (responseUpdate.Headers[i].Value.ToString().Contains("kicked"))
+                        {
+                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                            returnToEvents_Click(new object(), new EventArgs());
+                        }
+                    }
+                }
+
+                if (statusCode == "NotFound")  //no internet connnection
+                {
+                    MessageBox.Show("Whoops. Either this player doesn't exist or your data connection doesn't exist");
+                    returnToEvents_Click(new object(), new EventArgs());
+                }
+
+                else if (statusCode != "OK")
                 {
                     MessageBox.Show("There seems to be an error: " + statusCode);
                     currentSong = new PlayedActivePlaylistEntry();
-                }
-
-                else if (statusCode == "NotFound")  //no internet connnection
-                {
-                    MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-
                 }
                 queueLB.DataContext = new List<ActivePlaylistEntry>(); //clear the queue listbox
 
@@ -156,8 +169,9 @@ namespace UDJ
                     long seconds = currentSong.song.duration % 60;
                     durationTB.Text = minutes.ToString() + " minutes and " + seconds.ToString() + " seconds";
                 }
-                catch (NullReferenceException e)
+                catch (NullReferenceException)
                 {
+                   
                     MessageBox.Show("Try adding something to the playlist now!", "There's nothing playing :(", MessageBoxButton.OK);
                 }
 
@@ -174,33 +188,10 @@ namespace UDJ
 
             });
 
-            url = "https://udjplayer.com:4897/udj/players/" + connectedPlayer.id + "/available_music/random_songs?number_of_randoms=25";
-            client = new RestClient(url);
-            request = new RestRequest("", Method.GET);
-            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
-
-            client.ExecuteAsync<List<LibraryEntry>>(request, response =>
-            {
-                List<LibraryEntry> recentlyPlayedResponse = response.Data; //Activeplaylist response is the current song playing and active playlist
-                statusCode = response.StatusCode.ToString();
-
-
-                if (statusCode != "OK")
-                {
-                    MessageBox.Show("There seems to be an error: " + statusCode);
-                    currentSong = new PlayedActivePlaylistEntry();
-                }
-
-                else if (statusCode == "NotFound")  //no internet connnection
-                {
-                    MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-
-                }
-                recentlyPlayedLB.DataContext = new List<ActivePlaylistEntry>(); //clear the queue listbox
-                recentlyPlayedLB.DataContext = recentlyPlayedResponse;
-
-            });
+            
         }
+
+
         
 
      /*   private void logout_Click(object sender, EventArgs e)
@@ -220,10 +211,17 @@ namespace UDJ
            
                 if (searchTitle.Visibility == System.Windows.Visibility.Visible)
                     searchTitle.Visibility = System.Windows.Visibility.Collapsed;
+
+                if (searchTextBox.Text == "" || searchTextBox.Text == "Enter your search here")
+                {
+                    MessageBox.Show("Try searching again buddy. This time with actual words.");
+                    return;
+                }
+
                 loadingProgressBar.IsLoading = true;
                 string statusCode = "";
                 searchTitle.Visibility = Visibility.Collapsed; //hide searchTitle textblock
-                string url = "https://udjplayer.com:4897/udj/players/" + connectedPlayer.id;
+                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
                 var client = new RestClient(url);
 
                 var request = new RestRequest("available_music?query=" + searchTextBox.Text, Method.GET);
@@ -237,20 +235,36 @@ namespace UDJ
                     statusCode = response.StatusCode.ToString();
                     string statuscodestring = statusCode;
 
+
                     if (searchResults.Count == 0)
                     { //if no results are returned
                         searchTitle.Visibility = Visibility.Visible;
                     }
 
-                    if (statusCode != "OK")
+                    
+
+                    if (statusCode == "Unauthorized")
                     {
-                        MessageBox.Show("There seems to be an error: " + statusCode);
+                        for (int i = 0; i < response.Headers.Count; i++)
+                        {
+                            if (response.Headers[i].Value.ToString().Contains("kicked"))
+                            {
+                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                                returnToEvents_Click(sender, e);
+                            }
+                        }
                     }
 
                     else if (statusCode == "NotFound")
                     {
                         MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
                     }
+
+                    else if (statusCode != "OK")
+                    {
+                        MessageBox.Show("There seems to be an error: " + statusCode);
+                    }
+
                     loadingProgressBar.IsLoading = false;
                     searchListBox.DataContext = searchResults;
 
@@ -290,6 +304,19 @@ namespace UDJ
                 {
                     MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
                 }
+
+                if (statusCode == "Unauthorized")
+                {
+                    for (int i = 0; i < response.Headers.Count; i++)
+                    {
+                        if (response.Headers[i].Value.ToString().Contains("kicked"))
+                        {
+                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                            returnToEvents_Click(new object(), new EventArgs());
+                        }
+                    }
+                }
+
                 else if (statusCode != "OK")
                 {
                     MessageBox.Show("There seems to be an error: " + statusCode);
@@ -336,15 +363,28 @@ namespace UDJ
                 {
                     statusCode = response.StatusCode.ToString();
 
-
-                    if (statusCode != "OK")
-                    {
-                        MessageBox.Show("There seems to be an error: " + statusCode);
-                    }
-                    else if (statusCode == "NotFound")
+                    if (statusCode == "NotFound")
                     {
                         MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
                     }
+
+                    if (statusCode == "Unauthorized")
+                    {
+                        for (int i = 0; i < response.Headers.Count; i++)
+                        {
+                            if (response.Headers[i].Value.ToString().Contains("kicked"))
+                            {
+                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                                returnToEvents_Click(new object(), new EventArgs());
+                            }
+                        }
+                    }
+
+                    else if (statusCode != "OK")
+                    {
+                        MessageBox.Show("There seems to be an error: " + statusCode);
+                    }
+                    
                     else
                     {
                         loadingProgressBar.IsLoading = false;
@@ -401,7 +441,18 @@ namespace UDJ
 
         private void refresh_Click(object sender, EventArgs e)
         {
-            updateNowPlaying();
+            if (((Pivot)sender).SelectedIndex == 0 || ((Pivot)sender).SelectedIndex == 1)
+                updateNowPlaying();
+            if (((Pivot)sender).SelectedIndex == 2)
+            {
+                if (searchTextBox.Text != null)
+                    searchButton_Click(new object(), new RoutedEventArgs());
+                else MessageBox.Show("Try typing your search term in the search box. Then I'd be happy to get you some delicious refreshed results.");
+            }
+            if (((Pivot)sender).SelectedIndex == 3)
+                randomList();
+            if (((Pivot)sender).SelectedIndex == 4)
+                getArtists();
         }
 
     
@@ -425,7 +476,7 @@ namespace UDJ
 
             client.ExecuteAsync<List<LibraryEntry>>(request, response =>
             {
-                searchListBox.DataContext = new List<LibraryEntry>();  //clear searchListBox
+                
                 List<LibraryEntry> searchResults = response.Data;
                 loadingProgressBar.IsLoading = false;
                 statusCode = response.StatusCode.ToString();
@@ -437,13 +488,25 @@ namespace UDJ
                     return;
                 }
 
+                if (statusCode == "Unauthorized")
+                {
+                    for (int i = 0; i < response.Headers.Count; i++)
+                    {
+                        if (response.Headers[i].Value.ToString().Contains("kicked"))
+                        {
+                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                            returnToEvents_Click(new object(), new EventArgs());
+                        }
+                    }
+                }
+
                 else if (statusCode != "OK")
                 {
                     MessageBox.Show("There seems to be an error: " + statusCode);
 
                     return;
                 }
-
+                randomLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
                 randomLB.DataContext = searchResults;
 
 
@@ -455,13 +518,16 @@ namespace UDJ
             /*if (((Pivot)sender).SelectedIndex == 3)
                 ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar0"];
              * * */
+            this.Focus();
             if (ApplicationBar != (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar3"])
             ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar3"];
 
+            if (((Pivot)sender).SelectedIndex == 0 || ((Pivot)sender).SelectedIndex == 1)
+                updateNowPlaying();
             if (((Pivot)sender).SelectedIndex == 3)
                 randomList();
-            if (((Pivot)sender).SelectedIndex == 4)
-                getArtists();
+           // if (((Pivot)sender).SelectedIndex == 4)
+                //getArtists();
 
 
              
@@ -487,6 +553,19 @@ namespace UDJ
                         MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
                         return;
                     }
+
+                    if (statusCode == "Unauthorized")
+                    {
+                        for (int i = 0; i < response.Headers.Count; i++)
+                        {
+                            if (response.Headers[i].Value.ToString().Contains("kicked"))
+                            {
+                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                                returnToEvents_Click(new object(), new EventArgs());
+                            }
+                        }
+                    }
+
                     else if (statusCode == "Conflict")
                     {
                         
@@ -633,6 +712,12 @@ namespace UDJ
             }
 
            
+        }
+
+        protected override void OnBackKeyPress(System.ComponentModel.CancelEventArgs e)
+        {
+            this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute)));
+            e.Cancel = true;
         }
 
         

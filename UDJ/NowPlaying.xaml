@@ -160,7 +160,7 @@
             <shell:ApplicationBarIconButton x:Name="upVote" IconUri="/icons/appbar.up.rest.png" Text="UpVote" Click="upVote_Click" />
             <shell:ApplicationBarIconButton x:Name="downVote" IconUri="/icons/appbar.down.rest.png" Text="DownVote" Click="downVote_Click" />
             <shell:ApplicationBar.MenuItems>
-                <shell:ApplicationBarMenuItem x:Name="returnToEventsButton" Text="return to events" Click="returnToEvents_Click" />
+                <shell:ApplicationBarMenuItem x:Name="returnToEventsButton" Text="back to players" Click="returnToEvents_Click" />
                 <shell:ApplicationBarMenuItem x:Name="refreshButton" Text="refresh" Click="refresh_Click" />
                 <shell:ApplicationBarMenuItem x:Name="addToFavoritesButton" Text="add to favorites" Click="favorite_Click" />
 
@@ -170,7 +170,7 @@
         <shell:ApplicationBar x:Key="appbar2"  IsVisible="True" IsMenuEnabled="True">
             <shell:ApplicationBarIconButton x:Name="addSong" IconUri="/icons/appbar.add.rest.png" Text="add to playlist" Click="addSong_Click" />
             <shell:ApplicationBar.MenuItems>
-                <shell:ApplicationBarMenuItem Text="return to events" Click="returnToEvents_Click" />
+                <shell:ApplicationBarMenuItem Text="back to players" Click="returnToEvents_Click" />
                 <shell:ApplicationBarMenuItem Text="refresh" Click="refresh_Click" />
                 <shell:ApplicationBarMenuItem Text="add to favorites" Click="favorite_Click" />
             </shell:ApplicationBar.MenuItems>
@@ -179,7 +179,7 @@
         <shell:ApplicationBar x:Key="appbar3" Mode="Minimized"  IsVisible="True" IsMenuEnabled="True">
             
             <shell:ApplicationBar.MenuItems>
-                <shell:ApplicationBarMenuItem Text="return to events" Click="returnToEvents_Click" />
+                <shell:ApplicationBarMenuItem Text="back to players" Click="returnToEvents_Click" />
                 <shell:ApplicationBarMenuItem Text="refresh" Click="refresh_Click" />
                 <shell:ApplicationBarMenuItem Text="add to favorites" Click="favorite_Click" />
 

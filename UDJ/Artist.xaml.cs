@@ -71,7 +71,7 @@ namespace UDJ
             //loadingProgressBar.IsLoading = true;
             string statusCode = "";
 
-            string url = "https://udjplayer.com:4897/udj/players/" + connectedPlayer.id;
+            string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
             var client = new RestClient(url);
 
             var request = new RestRequest("available_music/artists/" + selectedArtist, Method.GET);
@@ -80,11 +80,15 @@ namespace UDJ
 
             client.ExecuteAsync<List<LibraryEntry>>(request, response =>
             {
+
                 noSongsTB.Visibility = System.Windows.Visibility.Collapsed;
                 songLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
                 List<LibraryEntry> searchResults = response.Data;
                 statusCode = response.StatusCode.ToString();
                 string statuscodestring = statusCode;
+
+                if (searchResults == null)
+                    return;
 
                 if (searchResults.Count == 0)
                     noSongsTB.Visibility = System.Windows.Visibility.Visible;
@@ -101,6 +105,10 @@ namespace UDJ
                     MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
                 }
                 loadingProgressBar.IsLoading = false;
+                foreach (LibraryEntry t in searchResults)
+                {
+                    
+                }
                 songLB.DataContext = searchResults;
 
             });

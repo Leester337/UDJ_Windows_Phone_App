@@ -62,15 +62,16 @@ namespace UDJ
             base.OnNavigatedTo(e);
         }
 
+        //repeated again in case user has not logged in the past day, it'll log him in here
         public void loginToUDJ()
         {
 
             string statusCode = "";
             IsolatedStorageSettings settings = IsolatedStorageSettings.ApplicationSettings;
 
-            var client = new RestClient("https://udjplayer.com:4897/udj/");
+            var client = new RestClient("https://udjplayer.com:4897/udj/0_6");
             var request = new RestRequest("auth", Method.POST);
-            currentUser = (User)settings["currentUser"];
+
             request.AddParameter("username", currentUser.username);
             request.AddParameter("password", currentUser.password);
 
@@ -83,26 +84,37 @@ namespace UDJ
                 {
                     AuthResponse userInfo = response.Data;
                     currentUser.hashID = userInfo.ticket_hash;
-                    currentUser.id = Convert.ToInt64(userInfo.user_id);
+                    currentUser.id = userInfo.user_id;
                     currentUser.hashCreated = DateTime.Now; //set hashCreated to now
                     // DateTime hashCreatedEcho = hashCreated; 
                     string hashIDString = currentUser.hashID;
                     settings["currentUser"] = currentUser; //save currentUser 
                     // PhoneApplicationService.Current.State["currUser"] = this; 
-                    buildPlayerList();
-
+                    (Application.Current.RootVisual as PhoneApplicationFrame).Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute)); //go to findPlayer
                 }
                 else if (statusCode == "NotFound")
                 {
-                    MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                    MessageBox.Show("It would be in your best interests to try again. Check your wifis!");
+                    loadingProgressBar.IsLoading = false;
+                }
 
+                else if (statusCode == "BadRequest")
+                {
+                    MessageBox.Show("Did you forget to type something? Please try again!");
+                    loadingProgressBar.IsLoading = false;
+                }
+
+                else if (statusCode == "Unauthorized")
+                {
+                    MessageBox.Show("Either that's not your username or that's not your password. Please try again!");
+                    loadingProgressBar.IsLoading = false;
                 }
 
                 else
                 {
 
                     MessageBox.Show("There seems to be an error: " + statusCode);
-
+                    loadingProgressBar.IsLoading = false;
                 }
 
 
@@ -151,10 +163,11 @@ namespace UDJ
             
         }
 
+        //TO-DO: Add support for radius and handle if radius is too small or large
         public void findNearestPlayer()
         {
             string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/players/";
+            string url = "https://udjplayer.com:4897/udj/0_6/players/";
 
             //currentUser.latitude = 40.113523; //sample coordinates that return players
             //currentUser.longitude = -88.224006;
@@ -165,9 +178,6 @@ namespace UDJ
             request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID);
 
             List<Player> players = new List<Player>(); //list to store returned events
-            playerListBox.DataContext = new List<Player>(); //clear the eventListBox
-            recentPlayerListBox.DataContext = new List<PlayerDatePair>(); //clear recentEventListBox
-            favPlayersListBox.DataContext = new List<Player>(); //clear favEventListBox, the listbox that contains the user's favorited events
 
             client.ExecuteAsync<List<Player>>(request, response =>
             {
@@ -191,6 +201,7 @@ namespace UDJ
 
                     loadingTextBlock.Visibility = Visibility.Collapsed; //get rid of "Loading..." textblock when the players are ready to be retreived
                     loadingProgressBar.IsLoading = false;
+                    playerListBox.DataContext = new List<Player>(); //clear the eventListBox
                     playerListBox.DataContext = players;
 
                     if (!settings.Contains("recentPlayers")) //if there are no recentEvents list saved, then display noRecentTextBlock
@@ -226,6 +237,7 @@ namespace UDJ
                             recentPlayersList.RemoveAt(i); //remove it
                         else checkForDupPlayers.Add(recentPlayersList[i].playerOfPair.name); //otherwise add it to the checkFor list
                     }
+                    recentPlayerListBox.DataContext = new List<PlayerDatePair>(); //clear recentEventListBox
                     recentPlayerListBox.DataContext = recentPlayersList; //display recentEventsList in the recentEventListBox
                     settings["recentPlayers"] = recentPlayersList;  //save the revised events list
                 }
@@ -249,7 +261,7 @@ namespace UDJ
                             favPlayersList.RemoveAt(i); //remove it
                         else checkForDup.Add(favPlayersList[i].name); //otherwise add it to the checkFor list
                     }
-                 
+                    favPlayersListBox.DataContext = new List<Player>(); //clear favEventListBox, the listbox that contains the user's favorited events
                         favPlayersListBox.DataContext = favPlayersList; 
                         settings["favPlayers"] = favPlayersList; //save the favorites list
                     
@@ -270,7 +282,7 @@ namespace UDJ
                     selectedPlayer = selectedItem.playerOfPair; //get the selected event
                 }
                
-                var answer = MessageBox.Show("Do you want to join this player?", "Selected Event", MessageBoxButton.OKCancel);
+                var answer = MessageBox.Show("Do you want to join this player?", "Selected Player", MessageBoxButton.OKCancel);
                 if (answer == MessageBoxResult.OK)
                 {
                     settings["connectedPlayer"] = selectedPlayer; //locally store the selectedEvent
@@ -311,12 +323,14 @@ namespace UDJ
             }
         }
 
+
+
         public void loginToPlayer()
         {
             string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/players/" + selectedPlayer.id + "/users";
+            string url = "https://udjplayer.com:4897/udj/0_6/players/" + selectedPlayer.id + "/users/";
             var client = new RestClient(url);
-            var request = new RestRequest(currentUser.id.ToString(), Method.PUT);
+            var request = new RestRequest("user", Method.PUT);
             request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID);
             if (selectedPlayer.has_password && selectedPlayer.password == null)
             {
@@ -325,6 +339,7 @@ namespace UDJ
                 passwordLabel.Visibility = Visibility.Visible;
                 password.Visibility = Visibility.Visible;
                 passwordButton.Visibility = Visibility.Visible;
+                return;
             }
 
             if (selectedPlayer.has_password && selectedPlayer.password != null)
@@ -337,15 +352,62 @@ namespace UDJ
                 currentUser.isAtPlayer = true; //user is at Event
                 if (statusCode != "Created")
                 {
+                    if (statusCode == "Unauthroized") //User already logged into player
+                    {
+                        //if (alreadyLoggedInPlayer == null)
+                        
+                        var message = MessageBox.Show("Woah slow down cowboy, this requires a password. Tap it again and put it in when you're asked. Click okay if you want me to do that for you.", "YOU SHALL NOT PASS", MessageBoxButton.OKCancel);
+                        selectedPlayer.has_password = true;
+                        if (message == MessageBoxResult.OK)
+                            loginToPlayer();
+                        else deselectAll();
+                        return;
+                    }
                     if (statusCode == "Conflict") //User already logged into player
                     {
                         //if (alreadyLoggedInPlayer == null)
                         MessageBox.Show("It seems you're already logged into another player. Go to " + alreadyLoggedInPlayer.name + " and logout before you log in here!");
+                        deselectAll();
+                        return;
+                    }
+
+                    if (statusCode == "Forbidden") //User already logged into player
+                    {
+                        string cause = "";
+                        for (int i = 0; i < response.Headers.Count; i++)
+                        {
+                            if (response.Headers[i].Value.ToString().Contains("player-full"))
+                            {
+                                cause = "full";
+                            }
+                            else if (response.Headers[i].Value.ToString().Contains("banned"))
+                            {
+                                cause = "banned";
+                            }
+                            else cause = "unknown";
+                        }
+
+                        switch (cause)
+                        {
+                            case "full":
+                                MessageBox.Show("Sorry buddy, you're a little late. Try again later when the room's got some extra room.");
+                                break;
+                            case "banned":
+                                MessageBox.Show("Yikes, looks like the owners don't want you here. Try talking to " + selectedPlayer.owner_username + ", the owner, directly.");
+                                break;
+                            default:
+                                MessageBox.Show("WARNING WARNING: You are forbidden to join this event. Sorry buddy.");
+                                break;
+                        }
+                        
+                        deselectAll();
                         return;
                     }
                     else if (statusCode == "NotFound")
                     {
                         MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                        deselectAll();
+                        return;
                     }
                     else
                     {
@@ -361,6 +423,15 @@ namespace UDJ
             
             
 
+        }
+
+        private void deselectAll()
+        {
+            if (playerListBox.SelectedItem != null)
+                playerListBox.SelectedItem = null;
+            else if (recentPlayerListBox.SelectedItem != null)
+                recentPlayerListBox.SelectedItem = null;
+            else favPlayersListBox.SelectedItem = null;
         }
 
         private void favPlayerListBox_Hold(object sender, Microsoft.Phone.Controls.GestureEventArgs e) //user hold down event in favEventListBox

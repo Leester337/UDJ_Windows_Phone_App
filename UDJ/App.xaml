@@ -11,6 +11,7 @@
         <UriMapper:UriMapper x:Name="mapper">
             <UriMapper:UriMapping Uri="/MainPage.xaml" />
         </UriMapper:UriMapper>
+
     </Application.Resources>
 
     <Application.ApplicationLifetimeObjects>
