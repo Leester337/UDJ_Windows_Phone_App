@@ -150,8 +150,7 @@ namespace UDJ
 
                 
                 
-                bool containsId = settings.Contains("minClientReqID");
-                if (isAtPlayer && containsPlayer && containsId)
+                if (isAtPlayer && containsPlayer)
                     page = "now";
                 else
                 {

@@ -41,10 +41,13 @@ namespace UDJ
     {
         public string id { get; set; }
         public string name { get; set; }
-        public string owner_id { get; set; }
-        public string owner_username { get; set; }
-        public string latitude { get; set; }
-        public string longitude { get; set; }
+        public User owner { get; set; }
+        public Location location { get; set; }
+        public SortingAlgorithm sorting_algo { get; set; }
+        public List<User> admins { get; set; }
+        public bool songset_user_permission { get; set; }
+        public int num_active_users { get; set; }
+        public int size_limit { get; set; }
         public bool has_password { get; set; }
         public string password { get; set; }
 

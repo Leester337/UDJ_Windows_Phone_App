@@ -56,6 +56,7 @@ namespace UDJ
         public double longitude { get; set; }
         public bool hashIsValid { get; set; }
         public DateTime hashCreated { get; set; }
+        public bool isOwnerOrAdmin { get; set; }
 
 
 

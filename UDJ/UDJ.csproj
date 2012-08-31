@@ -83,6 +83,7 @@
     <Compile Include="Artist.xaml.cs">
       <DependentUpon>Artist.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Location.cs" />
     <Compile Include="PlayedActivePlaylistEntry.cs" />
     <Compile Include="Player.cs" />
     <Compile Include="PlayerDatePair.cs" />
@@ -99,6 +100,7 @@
     <Compile Include="ProgressBar\CustomPerformanceProgressBar.cs" />
     <Compile Include="ProgressBar\RelativeAnimatingContentControl.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SortingAlgorithm.cs" />
     <Compile Include="User.cs" />
     <Compile Include="VisibilityConverter.cs" />
   </ItemGroup>

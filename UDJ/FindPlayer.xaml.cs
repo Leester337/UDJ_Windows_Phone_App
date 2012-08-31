@@ -42,6 +42,8 @@ namespace UDJ
 {
     public partial class FindPlayer : PhoneApplicationPage
     {
+        private object _selected;
+
         public FindPlayer()
         {
             InitializeComponent();
@@ -51,6 +53,7 @@ namespace UDJ
 
         protected override void OnNavigatedTo(System.Windows.Navigation.NavigationEventArgs e)
         {
+
             loadingProgressBar.IsLoading = true;
             if (settings.Contains("hashIsValid") && !((bool)settings["hashIsValid"]))
             {
@@ -65,10 +68,10 @@ namespace UDJ
         //repeated again in case user has not logged in the past day, it'll log him in here
         public void loginToUDJ()
         {
-
+            
             string statusCode = "";
             IsolatedStorageSettings settings = IsolatedStorageSettings.ApplicationSettings;
-
+            currentUser = (User)settings["currentUser"];
             var client = new RestClient("https://udjplayer.com:4897/udj/0_6");
             var request = new RestRequest("auth", Method.POST);
 
@@ -90,24 +93,29 @@ namespace UDJ
                     string hashIDString = currentUser.hashID;
                     settings["currentUser"] = currentUser; //save currentUser 
                     // PhoneApplicationService.Current.State["currUser"] = this; 
-                    (Application.Current.RootVisual as PhoneApplicationFrame).Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute)); //go to findPlayer
+                    buildPlayerList();
+                    loadingProgressBar.IsLoading = false;
+                    return;
                 }
                 else if (statusCode == "NotFound")
                 {
                     MessageBox.Show("It would be in your best interests to try again. Check your wifis!");
                     loadingProgressBar.IsLoading = false;
+                    return;
                 }
 
                 else if (statusCode == "BadRequest")
                 {
                     MessageBox.Show("Did you forget to type something? Please try again!");
                     loadingProgressBar.IsLoading = false;
+                    return;
                 }
 
                 else if (statusCode == "Unauthorized")
                 {
                     MessageBox.Show("Either that's not your username or that's not your password. Please try again!");
                     loadingProgressBar.IsLoading = false;
+                    return;
                 }
 
                 else
@@ -115,6 +123,7 @@ namespace UDJ
 
                     MessageBox.Show("There seems to be an error: " + statusCode);
                     loadingProgressBar.IsLoading = false;
+                    return;
                 }
 
 
@@ -130,7 +139,6 @@ namespace UDJ
         User currentUser;
         Player selectedPlayer = null;
         GeoCoordinateWatcher watcher = new GeoCoordinateWatcher(GeoPositionAccuracy.High);
-        bool goToMain = false;
 
         public void buildPlayerList()
         {
@@ -188,6 +196,8 @@ namespace UDJ
                     if (statusCode == "NotFound") //no internet connection
                     {
                         MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                        loadingProgressBar.IsLoading = false;
+                        return;
                     }
 
                     else if (statusCode != "OK") //general error, assuming it is due to incorrect login credentials
@@ -195,7 +205,9 @@ namespace UDJ
                         MessageBox.Show("Whoops! Something went wrong, I'll redirect you to the login screen.");
                         settings.Remove("currentUser");
                         MessageBox.Show("There seems to be an error: " + statusCode);
+                        loadingProgressBar.IsLoading = false;
                          this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/MainPage.xaml", UriKind.RelativeOrAbsolute)));
+                         return;
                     }
 
 
@@ -271,62 +283,106 @@ namespace UDJ
 
         public void playerListBox_SelectionChanged(object sender, SelectionChangedEventArgs e) //when a user taps an event
         {
-            if (e.AddedItems.Count == 1) //checks to make sure only 1 player is selected
+            var list = (ListBox)sender;
+
+
+
+            if (list.SelectedItem == _selected)
             {
-                currentUser = (User)settings["currentUser"]; //load currentUser
-                if (e.AddedItems[0].GetType() == typeof(Player))
-                    selectedPlayer = (Player)e.AddedItems[0];
-                else
+                list.SelectedIndex = -1;
+                _selected = null;
+            }
+            else
+            {
+                _selected = list.SelectedItem;
+
+                if (e.AddedItems.Count == 1) //checks to make sure only 1 player is selected
                 {
-                    PlayerDatePair selectedItem = (PlayerDatePair)(e.AddedItems[0]);
-                    selectedPlayer = selectedItem.playerOfPair; //get the selected event
-                }
-               
-                var answer = MessageBox.Show("Do you want to join this player?", "Selected Player", MessageBoxButton.OKCancel);
-                if (answer == MessageBoxResult.OK)
-                {
-                    settings["connectedPlayer"] = selectedPlayer; //locally store the selectedEvent
-                    settings["currentUser"] = currentUser;
-                    settings["minClientReqID"] = 0; 
-                    PlayerDatePair playerDate = new PlayerDatePair(selectedPlayer, DateTime.Now);
-                    List<PlayerDatePair> recentPlayers = new List<PlayerDatePair>();
-                    if (settings.Contains("recentPlayers"))
+                    currentUser = (User)settings["currentUser"]; //load currentUser
+                    if (e.AddedItems[0].GetType() == typeof(Player))
+                        selectedPlayer = (Player)e.AddedItems[0];
+                    else
                     {
-                        recentPlayers = (List<PlayerDatePair>)settings["recentPlayers"];
+                        PlayerDatePair selectedItem = (PlayerDatePair)(e.AddedItems[0]);
+                        selectedPlayer = selectedItem.playerOfPair; //get the selected event
+                    }
+
+                    var answer = MessageBox.Show("Do you want to join this player?", "Selected Player", MessageBoxButton.OKCancel);
+                    if (answer == MessageBoxResult.OK)
+                    {
+                        settings["connectedPlayer"] = selectedPlayer; //locally store the selectedEvent
+                        settings["currentUser"] = currentUser;
+                        PlayerDatePair playerDate = new PlayerDatePair(selectedPlayer, DateTime.Now);
+                        List<PlayerDatePair> recentPlayers = new List<PlayerDatePair>();
+                        if (settings.Contains("recentPlayers"))
+                        {
+                            recentPlayers = (List<PlayerDatePair>)settings["recentPlayers"];
+                            foreach (PlayerDatePair t in recentPlayers)
+                            {
+                                MemoryStream ms = new MemoryStream(t.playerSerialized);
+                                ms.Position = 0;
+                                t.playerOfPair = (Player)PlayerDatePair.Deserialize(ms, typeof(Player));
+                                ms.Close();
+                            }
+                        }
+                        recentPlayers.Add(playerDate); //add the selected event to recent events
                         foreach (PlayerDatePair t in recentPlayers)
                         {
-                            MemoryStream ms = new MemoryStream(t.playerSerialized);
+                            MemoryStream ms = new MemoryStream();
+                            PlayerDatePair.Serialize(ms, t.playerOfPair);
                             ms.Position = 0;
-                            t.playerOfPair = (Player)PlayerDatePair.Deserialize(ms, typeof(Player));
-                            ms.Close();
+                            t.playerSerialized = ms.ToArray();
+
                         }
+
+                        settings["recentPlayers"] = recentPlayers;
+                        settings.Save();
+                        loginToPlayer();
+
                     }
-                    recentPlayers.Add(playerDate); //add the selected event to recent events
-                    foreach (PlayerDatePair t in recentPlayers)
+                    else
                     {
-                        MemoryStream ms = new MemoryStream();
-                        PlayerDatePair.Serialize(ms, t.playerOfPair);
-                        ms.Position = 0;
-                        t.playerSerialized = ms.ToArray();
-
+                        findNearestPlayer();
                     }
-                    
-                    settings["recentPlayers"] = recentPlayers;
-                    settings.Save();
-                    loginToPlayer();
-
-                }
-                else
-                {
-                    findNearestPlayer();
                 }
             }
+        }
+
+        protected override void OnBackKeyPress(System.ComponentModel.CancelEventArgs e)
+        {
+            if (passwordRect.Visibility == Visibility.Visible)
+            {
+                passwordRect.Visibility = Visibility.Collapsed;
+                passwordTitle.Visibility = Visibility.Collapsed;
+                passwordLabel.Visibility = Visibility.Collapsed;
+                password.Visibility = Visibility.Collapsed;
+                passwordButton.Visibility = Visibility.Collapsed;
+                return;
+            }
+            else NavigationService.GoBack();
         }
 
 
 
         public void loginToPlayer()
         {
+            bool userIsOwnerOrAdmin = false;
+            foreach (User t in selectedPlayer.admins){
+                if (currentUser.username == t.username)
+                {
+                    userIsOwnerOrAdmin = true;
+                    break;
+                }
+            }
+            if (selectedPlayer.owner.username == currentUser.username)
+                userIsOwnerOrAdmin = true;
+            if (userIsOwnerOrAdmin)
+            {
+                currentUser.isOwnerOrAdmin = true;
+                this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/NowPlaying.xaml", UriKind.RelativeOrAbsolute)));
+                return;
+            }
+            else currentUser.isOwnerOrAdmin = false;
             string statusCode = "";
             string url = "https://udjplayer.com:4897/udj/0_6/players/" + selectedPlayer.id + "/users/";
             var client = new RestClient(url);
@@ -361,6 +417,7 @@ namespace UDJ
                         if (message == MessageBoxResult.OK)
                             loginToPlayer();
                         else deselectAll();
+                        loadingProgressBar.IsLoading = false;
                         return;
                     }
                     if (statusCode == "Conflict") //User already logged into player
@@ -368,6 +425,7 @@ namespace UDJ
                         //if (alreadyLoggedInPlayer == null)
                         MessageBox.Show("It seems you're already logged into another player. Go to " + alreadyLoggedInPlayer.name + " and logout before you log in here!");
                         deselectAll();
+                        loadingProgressBar.IsLoading = false;
                         return;
                     }
 
@@ -390,10 +448,10 @@ namespace UDJ
                         switch (cause)
                         {
                             case "full":
-                                MessageBox.Show("Sorry buddy, you're a little late. Try again later when the room's got some extra room.");
+                                MessageBox.Show("Sorry buddy, looks like " + selectedPlayer.owner.username + ", the owner, has a limit to this room. Tell him you want in!");
                                 break;
                             case "banned":
-                                MessageBox.Show("Yikes, looks like the owners don't want you here. Try talking to " + selectedPlayer.owner_username + ", the owner, directly.");
+                                MessageBox.Show("Yikes, looks like the owners don't want you here. Try talking to " + selectedPlayer.owner.username + ", the owner, directly.");
                                 break;
                             default:
                                 MessageBox.Show("WARNING WARNING: You are forbidden to join this event. Sorry buddy.");
@@ -401,17 +459,20 @@ namespace UDJ
                         }
                         
                         deselectAll();
+                        loadingProgressBar.IsLoading = false;
                         return;
                     }
                     else if (statusCode == "NotFound")
                     {
-                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                        MessageBox.Show("Hmm either this player doesn't exist anymore or you lost your internet connection. Try again later!");
                         deselectAll();
+                        loadingProgressBar.IsLoading = false;
                         return;
                     }
                     else
                     {
                         var answer = MessageBox.Show("There seems to be an error: " + statusCode);
+                        loadingProgressBar.IsLoading = false;
                         if (answer == MessageBoxResult.OK)
                             return;
                     }
@@ -453,14 +514,12 @@ namespace UDJ
             var answer = MessageBox.Show("Are you sure you want to log out?", "Log out", MessageBoxButton.OKCancel);
             if (answer == MessageBoxResult.OK)
             {
-                goToMain = true;
-                if (settings.Contains("connectedPlayer") && settings.Contains("currentUser") && settings.Contains("minClientReqID"))
+                if (settings.Contains("connectedPlayer") && settings.Contains("currentUser"))
                 {
                     selectedPlayer = (Player)settings["connectedPlayer"];
                     //selectedPlayer.logout(currentUser.id, currentUser.hashID, true);
                     settings.Remove("currentUser");
                     settings.Remove("connectedPlayer");
-                    settings.Remove("minClientReqID");
                 }
                
                 //(Application.Current.RootVisual as PhoneApplicationFrame).Navigate(new Uri("/MainPage.xaml", UriKind.RelativeOrAbsolute));

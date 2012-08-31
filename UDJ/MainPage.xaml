@@ -31,13 +31,13 @@
         </StackPanel>
 
         <!--ContentPanel - place additional content here-->
-        <Grid x:Name="ContentPanel" Grid.Row="1" Margin="12,0,12,0">
+        <Grid x:Name="ContentPanel" Margin="12,146,12,1" Grid.RowSpan="2">
             
-            <TextBox Height="72" HorizontalAlignment="Left" Margin="-12,134,0,0" Name="passwordWatermark" Text="Password" Foreground="Gray" VerticalAlignment="Top" Width="460" d:LayoutOverrides="VerticalAlignment" />
-            <TextBox Height="72" HorizontalAlignment="Left" Margin="-12,56,0,0" Name="username" Foreground="Gray" Text="Username" VerticalAlignment="Top" Width="460" GotFocus="username_GotFocus" LostFocus="username_LostFocus" />
-            <TextBlock Height="30" HorizontalAlignment="Left" Margin="6,6,0,0" Name="textBlock1" Text="Please login below:" VerticalAlignment="Top" FontSize="24" />
-            <PasswordBox Height="72" Margin="-16,134,0,0" Name="password" Opacity="0" VerticalAlignment="Top" GotFocus="password_GotFocus" LostFocus="password_LostFocus" KeyDown="password_KeyDown" d:LayoutOverrides="VerticalAlignment" />
-            <Button Content="Login" Height="72" HorizontalAlignment="Left" Margin="145,212,0,0" Name="login" VerticalAlignment="Top" Width="160" Click="login_Click" GotFocus="login_GotFocus" LostFocus="login_LostFocus" />
+            <TextBox Height="72" HorizontalAlignment="Left" Margin="-4,84,0,0" Name="passwordWatermark" Text="Password" Foreground="Gray" VerticalAlignment="Top" Width="460" d:LayoutOverrides="VerticalAlignment" />
+            <TextBox Height="72" HorizontalAlignment="Left" Margin="-4,6,0,0" Name="username" Foreground="Gray" Text="Username" VerticalAlignment="Top" Width="460" GotFocus="username_GotFocus" LostFocus="username_LostFocus" />
+            <PasswordBox Height="72" Margin="-4,84,0,0" Name="password" Opacity="0" VerticalAlignment="Top" GotFocus="password_GotFocus" LostFocus="password_LostFocus" KeyDown="password_KeyDown" d:LayoutOverrides="VerticalAlignment" />
+            <Button Content="Login" Height="72" HorizontalAlignment="Left" Margin="145,162,0,0" Name="login" VerticalAlignment="Top" Width="160" Click="login_Click" GotFocus="login_GotFocus" LostFocus="login_LostFocus" />
+            <TextBlock Height="30" HorizontalAlignment="Left" Margin="61,240,0,0" Name="makeAccountTB" Text="Don't have an account? Make one here!" VerticalAlignment="Top" Tap="makeAccountTB_Tap" TextDecorations="Underline" />
         </Grid>
     </Grid>
 

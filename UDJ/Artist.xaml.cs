@@ -25,8 +25,6 @@ namespace UDJ
         string selectedArtist = "";
         private object _selected;
         ActivePlaylistEntry selectedSong = null;
-        long minClientReqID;
-        Dictionary<long, long> minClientReqIDMap = new Dictionary<long, long>();
 
         public Artist()
         {
@@ -40,7 +38,6 @@ namespace UDJ
         {
             settings["connectedPlayer"] = connectedPlayer;
             settings["currentUser"] = currentUser;
-            settings["minClientReqID"] = minClientReqID;
             IsolatedStorageSettings.ApplicationSettings.Save();
             base.OnNavigatedFrom(e);
         }
@@ -57,7 +54,6 @@ namespace UDJ
             loadingProgressBar.IsLoading = true;
             connectedPlayer = (Player)settings["connectedPlayer"]; //load connected event and user
             currentUser = (User)settings["currentUser"];
-            minClientReqID = Convert.ToInt64(settings["minClientReqID"]);
 
 
             base.OnNavigatedTo(e);
@@ -97,13 +93,48 @@ namespace UDJ
 
                 if (statusCode != "OK")
                 {
+                    loadingProgressBar.IsLoading = false;
                     MessageBox.Show("There seems to be an error: " + statusCode);
+                    return;
                 }
 
                 else if (statusCode == "NotFound")
                 {
+                    for (int i = 0; i < response.Headers.Count; i++)
+                    {
+                        if (response.Headers[i].Value.ToString().Contains("inactive"))
+                        {
+                            MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
+                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                            return;
+                        }
+                    }
                     MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                    loadingProgressBar.IsLoading = false;
+                    return;
                 }
+                else if (statusCode == "Unauthorized")
+                {
+                    for (int i = 0; i < response.Headers.Count; i++)
+                    {
+                        if (response.Headers[i].Value.ToString().Contains("kicked"))
+                        {
+                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                            return;
+                        }
+
+                        if (response.Headers[i].Value.ToString().Contains("begin-participating"))
+                        {
+                            MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
+                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                            return;
+                        }
+                    }
+                    loadingProgressBar.IsLoading = false;
+                    return;
+                }
+
                 loadingProgressBar.IsLoading = false;
                 foreach (LibraryEntry t in searchResults)
                 {
@@ -155,7 +186,7 @@ namespace UDJ
             {
                 loadingProgressBar.IsLoading = false;
                 string statusCode = "";
-                string url = "https://udjplayer.com:4897/udj/players/" + connectedPlayer.id + "/active_playlist/songs/" + selectedSong.song.id.ToString() + "/users/" + currentUser.id + "/";
+                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/songs/" + selectedSong.song.id.ToString() + "/";
                 var client = new RestClient(url);
                 var request = new RestRequest(upOrDown, Method.POST);
                 ActivePlaylistEntry selectedSongString = selectedSong;
@@ -165,20 +196,63 @@ namespace UDJ
                 {
                     statusCode = response.StatusCode.ToString();
 
+                    if (statusCode == "NotFound")
+                    {
+                        for (int i = 0; i < response.Headers.Count; i++)
+                        {
+                            if (response.Headers[i].Value.ToString().Contains("song"))
+                            {
+                                MessageBox.Show("Hmm that song doesn't exist in the library anymore. Try picking another one!");
+                                return;
+                            }
+                            
+                                if (response.Headers[i].Value.ToString().Contains("inactive"))
+                                {
+                                    MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
+                                    returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                                    return;
+                                }
+                           
+                        }
+                        loadingProgressBar.IsLoading = false;
+                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                        return;
+                    }
 
-                    if (statusCode != "OK")
+                    if (statusCode == "Unauthorized")
+                    {
+                        for (int i = 0; i < response.Headers.Count; i++)
+                        {
+                            if (response.Headers[i].Value.ToString().Contains("kicked"))
+                            {
+                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                                return;
+                            }
+
+                            if (response.Headers[i].Value.ToString().Contains("begin-participating"))
+                            {
+                                MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
+                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                                return;
+                            }
+                        }
+                        loadingProgressBar.IsLoading = false;
+                        return;
+                    }
+
+                    else if (statusCode != "OK")
                     {
                         MessageBox.Show("There seems to be an error: " + statusCode);
+                        return;
                     }
-                    else if (statusCode == "NotFound")
-                    {
-                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                    }
+                    
                     else
                     {
                         loadingProgressBar.IsLoading = false;
                         MessageBox.Show("Congrats, you've successfully " + upOrDown + "d " + selectedSong.song.title + "!", upOrDown[0].ToString().ToUpper() + upOrDown.Substring(1) + " was successful", MessageBoxButton.OK);
                     }
+                    
                     this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/NowPlaying.xaml", UriKind.RelativeOrAbsolute)));
                 });
 
@@ -188,40 +262,81 @@ namespace UDJ
 
         private void addSong_Click(object sender, EventArgs e)
         {
-            //minClientReqIDMap[selectedSong.song.id] = minClientReqID;
             string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/players/" + connectedPlayer.id + "/active_playlist/songs/";
-            var client = new RestClient(url);
-            var request = new RestRequest(selectedSearchResult.id.ToString(), Method.PUT);
-            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
-
-
-            client.ExecuteAsync(request, response =>
-            {
-                statusCode = response.StatusCode.ToString();
-
-                if (statusCode == "NotFound")
+                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/";
+                var client = new RestClient(url);
+                var request = new RestRequest(selectedSearchResult.id.ToString(), Method.PUT);
+                request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
+                
+                
+                client.ExecuteAsync(request, response =>
                 {
-                    MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                    return;
-                }
-                else if (statusCode == "Conflict")
-                {
+                    statusCode = response.StatusCode.ToString();
 
-                    selectedSong = new ActivePlaylistEntry();
-                    selectedSong.song = selectedSearchResult;
-                    upOrDownVote_Click("upvote");
+                    if (statusCode == "NotFound")
+                    {
 
+                        for (int i = 0; i < response.Headers.Count; i++)
+                        {
+                            if (response.Headers[i].Value.ToString().Contains("song"))
+                            {
+                                MessageBox.Show("Hmm that song doesn't exist in the library anymore. Try picking another one!");
+                                return;
+                            }
+                            
+                                if (response.Headers[i].Value.ToString().Contains("inactive"))
+                                {
+                                    MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
+                                    returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                                    return;
+                                }
+                            
+                        }
+                        loadingProgressBar.IsLoading = false;
+                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                        return;
+                    }
 
-                    return;
+                    if (statusCode == "Unauthorized")
+                    {
+                        for (int i = 0; i < response.Headers.Count; i++)
+                        {
+                            if (response.Headers[i].Value.ToString().Contains("kicked"))
+                            {
+                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                                return;
+                            }
 
-                }
-                else if (statusCode != "Created")
-                {
-                    MessageBox.Show("There seems to be an error: " + statusCode);
-                    return;
-                }
-                PhoneApplicationService.Current.State["minClientReqID"] = minClientReqID++;
+                            if (response.Headers[i].Value.ToString().Contains("begin-participating"))
+                            {
+                                MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
+                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                                return;
+                            }
+                        }
+                        loadingProgressBar.IsLoading = false;
+                        return;
+                    }
+
+ /*                   else if (statusCode == "Conflict")
+                    {
+                        
+                            selectedSong = new ActivePlaylistEntry();
+                            selectedSong.song = selectedSearchResult;
+                            upOrDownVote_Click("upvote");
+                            
+                       
+                        return;
+
+                    } */
+                    else if (statusCode != "Created")
+                    {
+                        MessageBox.Show("There seems to be an error: " + statusCode);
+                        loadingProgressBar.IsLoading = false;
+                        return;
+                    }
+                    
                 var answer = MessageBox.Show("Your song was successfully added and upvoted!", "Song added", MessageBoxButton.OK);
                 if (answer == MessageBoxResult.OK)
                 {
@@ -230,6 +345,12 @@ namespace UDJ
             });
 
 
+        }
+
+        private void returnToEventsNoLogOut_Click(object sender, EventArgs e)
+        {
+
+            this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute)));
         }
 
        

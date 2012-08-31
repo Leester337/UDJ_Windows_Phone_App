@@ -32,6 +32,7 @@ using RestSharp;
 using Newtonsoft.Json;
 using System.IO.IsolatedStorage;
 using Microsoft.Phone.Shell;
+using Microsoft.Phone.Tasks;
 
 namespace UDJ
 {
@@ -156,24 +157,28 @@ namespace UDJ
                     string hashIDString = currentUser.hashID;
                     settings["currentUser"] = currentUser; //save currentUser 
                     // PhoneApplicationService.Current.State["currUser"] = this; 
+                    progressBar.IsLoading = false;
                     (Application.Current.RootVisual as PhoneApplicationFrame).Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute)); //go to findPlayer
                 }
                 else if (statusCode == "NotFound")
                 {
                     MessageBox.Show("It would be in your best interests to try again. Check your wifis!");
                     progressBar.IsLoading = false;
+                    return;
                 }
 
                 else if (statusCode == "BadRequest")
                 {
                     MessageBox.Show("Did you forget to type something? Please try again!");
                     progressBar.IsLoading = false;
+                    return;
                 }
 
                 else if (statusCode == "Unauthorized")
                 {
                     MessageBox.Show("Either that's not your username or that's not your password. Please try again!");
                     progressBar.IsLoading = false;
+                    return;
                 }
 
                 else
@@ -181,12 +186,20 @@ namespace UDJ
 
                     MessageBox.Show("There seems to be an error: " + statusCode);
                     progressBar.IsLoading = false;
+                    return;
                 }
 
 
 
             });
 
+        }
+
+        private void makeAccountTB_Tap(object sender, System.Windows.Input.GestureEventArgs e)
+        {
+            WebBrowserTask wbt = new WebBrowserTask();
+            wbt.Uri = new Uri("https://www.udjplayer.com/registration/register/");
+            wbt.Show();
         }
 
         
