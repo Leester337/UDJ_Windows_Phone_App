@@ -60,7 +60,7 @@ namespace UDJ
                 loginToUDJ();
                 return;
             }
-            buildPlayerList();
+           
             
             base.OnNavigatedTo(e);
         }
@@ -200,11 +200,18 @@ namespace UDJ
                         return;
                     }
 
+                    else if (statusCode == "Unauthorized")
+                    {
+                        MessageBox.Show("Hmm looks like we got some faulty login details. Please login again!");
+                        NavigationService.Navigate(new Uri("/MainPage.xaml", UriKind.RelativeOrAbsolute));
+                        loadingProgressBar.IsLoading = false;
+                        return;
+                    }
+
                     else if (statusCode != "OK") //general error, assuming it is due to incorrect login credentials
                     {
-                        MessageBox.Show("Whoops! Something went wrong, I'll redirect you to the login screen.");
+                        MessageBox.Show("Whoops! Something went wrong, I'll redirect you to the login screen. Here's the error: " + statusCode);
                         settings.Remove("currentUser");
-                        MessageBox.Show("There seems to be an error: " + statusCode);
                         loadingProgressBar.IsLoading = false;
                          this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/MainPage.xaml", UriKind.RelativeOrAbsolute)));
                          return;
@@ -359,7 +366,12 @@ namespace UDJ
                 passwordButton.Visibility = Visibility.Collapsed;
                 return;
             }
-            else NavigationService.GoBack();
+
+            if (NavigationService.CanGoBack)
+            {
+                JournalEntry lastPage = NavigationService.BackStack.Last();
+                //lastPage.
+            }
         }
 
 
@@ -507,6 +519,22 @@ namespace UDJ
                 settings["favPlayers"] = favPlayersList;
             }
             buildPlayerList();
+        }
+
+        
+
+        private void pivotControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            /*if (((Pivot)sender).SelectedIndex == 3)
+                ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar0"];
+             * * */
+            
+
+            if (((Pivot)sender).SelectedIndex == 0)
+                buildPlayerList();
+
+
+
         }
 
         private void logoutTextBlock_Tap(object sender, Microsoft.Phone.Controls.GestureEventArgs e) //user tap logout

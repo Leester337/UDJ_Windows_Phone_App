@@ -37,7 +37,7 @@
     <Grid x:Name="LayoutRoot" Background="Transparent">
         <localControls:CustomPerformanceProgressBar VerticalAlignment="Top" IsLoading="{Binding IsLoading}" x:Name="loadingProgressBar"/>
         <!--Pivot Control-->
-        <controls:Pivot Title="UDJ">
+        <controls:Pivot Title="UDJ" Name="PivotControl" SelectionChanged="pivotControl_SelectionChanged">
             <!--Pivot item one-->
             <controls:PivotItem Header="Nearby">
                 <Grid>

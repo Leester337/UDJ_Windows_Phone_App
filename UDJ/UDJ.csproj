@@ -148,6 +148,7 @@
     <Content Include="icons\appbar.add.rest.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Resource Include="icons\appbar.basecircle.rest.png" />
     <Content Include="icons\appbar.close.rest.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -168,6 +169,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
     <Resource Include="icons\appbar.up.dark.rest.png" />
+    <Resource Include="icons\appbar.transport.play.rest.png" />
+    <Resource Include="icons\appbar.transport.pause.rest.png" />
     <Content Include="icons\randomicon.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

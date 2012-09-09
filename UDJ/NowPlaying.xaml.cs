@@ -102,16 +102,19 @@ namespace UDJ
             currentUser = (User)settings["currentUser"];
             currentUser.isAtPlayer = true;
             checkBackgroundColor();
+            changeOwnerLayout();
             getArtists();
          
             base.OnNavigatedTo(e);
         }
 
+        private void changeOwnerLayout()
+        {
+
+        }
 
         private void updateNowPlaying()
         {
-            if (invalidPlayer)
-                return;
             if (searchTitle.Visibility == System.Windows.Visibility.Visible)
                 searchTitle.Visibility = System.Windows.Visibility.Collapsed;
             string statusCode = "";
@@ -324,11 +327,7 @@ namespace UDJ
                 artistLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
                 List<string> searchResults = response.Data;
                 statusCode = response.StatusCode.ToString();
-                string statuscodestring = statusCode;
-
-                
-
-                
+                string statuscodestring = statusCode;                
 
                 if (statusCode == "NotFound")
                 {
@@ -345,6 +344,8 @@ namespace UDJ
                         }
                     }
                     MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                    if (invalidPlayer)
+                        invalidPlayer = true;
                     loadingProgressBar.IsLoading = false;
                     return;
                 }
@@ -633,7 +634,10 @@ namespace UDJ
             ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar3"];
 
             if (((Pivot)sender).SelectedIndex == 0 || ((Pivot)sender).SelectedIndex == 1)
-                updateNowPlaying();
+            {
+                if (!invalidPlayer)
+                    updateNowPlaying();
+            }
             if (((Pivot)sender).SelectedIndex == 3)
                 randomList();
            // if (((Pivot)sender).SelectedIndex == 4)
@@ -648,7 +652,7 @@ namespace UDJ
         {
             //minClientReqIDMap[selectedSearchResult.id] = minClientReqID;
                 string statusCode = "";
-                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/";
+                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/songs/";
                 var client = new RestClient(url);
                 var request = new RestRequest(selectedSearchResult.id.ToString(), Method.PUT);
                 request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
@@ -726,8 +730,9 @@ namespace UDJ
 
         private void returnToEvents_Click(object sender, EventArgs e)
         {
+            
+            NavigationService.Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute));
             logoutUser();
-            this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute)));
         }
 
         private void returnToEventsNoLogOut_Click(object sender, EventArgs e)
@@ -854,8 +859,18 @@ namespace UDJ
 
         protected override void OnBackKeyPress(System.ComponentModel.CancelEventArgs e)
         {
-            logoutUser();
-           NavigationService.Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute));
+            
+            if (!NavigationService.CanGoBack)
+            {
+                var answer = MessageBox.Show("would you like to leave UDJ? If not, we'll take you back to the players.", "Exit?", MessageBoxButton.OKCancel);
+
+                if (answer == MessageBoxResult.Cancel)
+                {
+                    NavigationService.Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute));
+                    logoutUser();
+                }
+            }
+            else logoutUser();
             
         }
 

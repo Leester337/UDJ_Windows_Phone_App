@@ -44,9 +44,9 @@
             <controls:PivotItem Header="Now Playing">
                 <Grid Height="546" Width="462" Margin="0,-20,0,0">
                    
-                    <TextBlock Height="50" HorizontalAlignment="Left" Margin="28,0,0,73" Name="songTB" VerticalAlignment="Bottom" Width="263" Text="" FontSize="26" />
-                    <TextBlock Height="50" HorizontalAlignment="Left" Margin="24,11,0,0" x:Name="artistTB" VerticalAlignment="Top" Width="263" FontSize="32" ><Run FontSize="32" Text=""/></TextBlock>
-                    <TextBlock Height="50" HorizontalAlignment="Left" Margin="25,62,0,0" Name="albumTB" Text="" VerticalAlignment="Top" Width="263" FontSize="26" />
+                    <TextBlock Height="50" HorizontalAlignment="Left" Margin="28,0,0,73" Name="songTB" VerticalAlignment="Bottom" Width="409" Text="" FontSize="26" />
+                    <TextBlock Height="50" HorizontalAlignment="Left" Margin="24,11,0,0" x:Name="artistTB" VerticalAlignment="Top" Width="410" FontSize="32" ><Run FontSize="32" Text=""/></TextBlock>
+                    <TextBlock Height="50" HorizontalAlignment="Left" Margin="25,62,0,0" Name="albumTB" Text="" VerticalAlignment="Top" Width="410" FontSize="26" />
                     <TextBlock Height="50" HorizontalAlignment="Left" Margin="25,359,0,0" Name="durationTB" Text="" VerticalAlignment="Top" Width="263" FontSize="18" />
                     <TextBlock Height="48" Margin="71,492,0,0" Name="upVotesTB" Text="" VerticalAlignment="Top" HorizontalAlignment="Left" Width="123" FontSize="26" />
                     <TextBlock Height="48" HorizontalAlignment="Left" Margin="295,495,0,0" Name="downVotesTB" Text="" VerticalAlignment="Top" Width="110" FontSize="26" />
