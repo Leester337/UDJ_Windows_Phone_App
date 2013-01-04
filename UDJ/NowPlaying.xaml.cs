@@ -129,9 +129,12 @@ namespace UDJ
                 statusCode = responseUpdate.StatusCode.ToString();
                 string statuscodestring = statusCode;
 
-                
+                if (statusCode == "0")
+                {
+                    return;
+                }
 
-                if (statusCode == "Unauthorized")
+                else if (statusCode == "Unauthorized")
                 {
                     invalidPlayer = true;
                     for (int i = 0; i < responseUpdate.Headers.Count; i++)
@@ -154,7 +157,7 @@ namespace UDJ
                     return;
                 }
 
-                if (statusCode == "NotFound")  //no internet connnection
+                else if (statusCode == "NotFound")  //no internet connnection
                 {
                     for (int i = 0; i < responseUpdate.Headers.Count; i++)
                     {
@@ -253,9 +256,13 @@ namespace UDJ
                         searchTitle.Visibility = Visibility.Visible;
                     }
 
+                    if (statusCode == "0")
+                    {
+                        return;
+                    }
                     
 
-                    if (statusCode == "Unauthorized")
+                    else if (statusCode == "Unauthorized")
                     {
                         for (int i = 0; i < response.Headers.Count; i++)
                         {
@@ -327,9 +334,14 @@ namespace UDJ
                 artistLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
                 List<string> searchResults = response.Data;
                 statusCode = response.StatusCode.ToString();
-                string statuscodestring = statusCode;                
+                string statuscodestring = statusCode;
 
-                if (statusCode == "NotFound")
+                if (statusCode == "0")
+                {
+                    return;
+                }
+
+                else if (statusCode == "NotFound")
                 {
                     for (int i = 0; i < response.Headers.Count; i++)
                     {
@@ -350,7 +362,7 @@ namespace UDJ
                     return;
                 }
 
-                if (statusCode == "Unauthorized")
+                else if (statusCode == "Unauthorized")
                 {
                     invalidPlayer = true;
                     for (int i = 0; i < response.Headers.Count; i++)
@@ -425,7 +437,12 @@ namespace UDJ
                 {
                     statusCode = response.StatusCode.ToString();
 
-                    if (statusCode == "NotFound")
+                    if (statusCode == "0")
+                    {
+                        return;
+                    }
+
+                    else if (statusCode == "NotFound")
                     {
                         for (int i = 0; i < response.Headers.Count; i++)
                         {
@@ -573,7 +590,12 @@ namespace UDJ
                 statusCode = response.StatusCode.ToString();
                 string statuscodestring = statusCode;
 
-                if (statusCode == "NotFound")
+                if (statusCode == "0")
+                {
+                    return;
+                }
+
+                else if (statusCode == "NotFound")
                 {
                     for (int i = 0; i < response.Headers.Count; i++)
                     {
@@ -589,7 +611,7 @@ namespace UDJ
                     return;
                 }
 
-                if (statusCode == "Unauthorized")
+                else if (statusCode == "Unauthorized")
                 {
                     for (int i = 0; i < response.Headers.Count; i++)
                     {
@@ -624,6 +646,85 @@ namespace UDJ
             });
         }
 
+        private void getRecent()
+        {
+
+            loadingProgressBar.IsLoading = true;
+            string statusCode = "";
+            string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
+            var client = new RestClient(url);
+            var request = new RestRequest("recently_played?max_songs=25", Method.GET);
+            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
+            //request.AddHeader("Content-Type", "text/json");
+            //string jsonObject = @"[{ ""lib_id"":" +  selectedSearchResult.id + @", ""client_request_id"":" + minClientReqID + "}]"; //create JSON object
+            //request.RequestFormat = DataFormat.Json;
+            //request.AddParameter("text/json", jsonObject, ParameterType.RequestBody);  //add JSON object as string
+
+
+            client.ExecuteAsync<List<LibraryEntry>>(request, response =>
+            {
+
+                List<LibraryEntry> searchResults = response.Data;
+                loadingProgressBar.IsLoading = false;
+                statusCode = response.StatusCode.ToString();
+                string statuscodestring = statusCode;
+
+                if (statusCode == "0")
+                {
+                    return;
+                }
+
+                else if (statusCode == "NotFound")
+                {
+                    for (int i = 0; i < response.Headers.Count; i++)
+                    {
+                        if (response.Headers[i].Value.ToString().Contains("inactive"))
+                        {
+                            MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
+                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                            return;
+                        }
+                    }
+                    MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
+                    loadingProgressBar.IsLoading = false;
+                    return;
+                }
+
+                else if (statusCode == "Unauthorized")
+                {
+                    for (int i = 0; i < response.Headers.Count; i++)
+                    {
+                        if (response.Headers[i].Value.ToString().Contains("kicked"))
+                        {
+                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
+                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                            return;
+                        }
+
+                        if (response.Headers[i].Value.ToString().Contains("begin-participating"))
+                        {
+                            MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
+                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
+                            return;
+                        }
+                    }
+                    loadingProgressBar.IsLoading = false;
+                    return;
+                }
+
+                else if (statusCode != "OK")
+                {
+                    MessageBox.Show("There seems to be an error: " + statusCode);
+                    loadingProgressBar.IsLoading = false;
+                    return;
+                }
+                recentlyPlayedLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
+                recentlyPlayedLB.DataContext = searchResults;
+
+
+            });
+        }
+
         private void pivotControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             /*if (((Pivot)sender).SelectedIndex == 3)
@@ -642,6 +743,8 @@ namespace UDJ
                 randomList();
            // if (((Pivot)sender).SelectedIndex == 4)
                 //getArtists();
+            if (((Pivot)sender).SelectedIndex == 5)
+                getRecent();
 
 
              
@@ -662,7 +765,12 @@ namespace UDJ
                 {
                     statusCode = response.StatusCode.ToString();
 
-                    if (statusCode == "NotFound")
+                    if (statusCode == "0")
+                    {
+                        return;
+                    }
+
+                    else if (statusCode == "NotFound")
                     {
 
                         for (int i = 0; i < response.Headers.Count; i++)
@@ -679,7 +787,7 @@ namespace UDJ
                         return;
                     }
 
-                    if (statusCode == "Unauthorized")
+                    else if (statusCode == "Unauthorized")
                     {
                         for (int i = 0; i < response.Headers.Count; i++)
                         {
@@ -893,7 +1001,12 @@ namespace UDJ
                 {
                     statusCode = response.StatusCode.ToString();
 
-                    if (statusCode == "NotFound")
+                    if (statusCode == "0")
+                    {
+                        return;
+                    }
+
+                    else if (statusCode == "NotFound")
                     {
                         for (int i = 0; i < response.Headers.Count; i++)
                         {

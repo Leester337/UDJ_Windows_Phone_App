@@ -51,6 +51,7 @@
                         </ListBox.ItemTemplate>
                         
                     </ListBox>
+                    <TextBlock Height="74" FontSize="26" HorizontalAlignment="Left" Margin="24,50,0,0" Name="noNearbyTextBlock" Visibility="Collapsed" Text="Ahh there's no players around you :(&#x0a;Maybe you should start your own!" VerticalAlignment="Top" Width="429" />
                     <TextBlock Height="50" HorizontalAlignment="Left" Margin="9,34,0,0" Name="loadingTextBlock" FontSize="34" Text="Loading..." VerticalAlignment="Top" Width="220" />
                   <!--  <Button Content="Logout" Height="72" HorizontalAlignment="Center" Name="logoutButton" VerticalAlignment="Bottom" Width="160" Tap="logoutTextBlock_Tap"/> -->
                     

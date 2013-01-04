@@ -47,14 +47,19 @@ namespace UDJ
         public FindPlayer()
         {
             InitializeComponent();
-            
-            
+        }
+
+        internal bool progressBar
+        {   
+            get { return loadingProgressBar.IsLoading; }
+            set { loadingProgressBar.IsLoading = value; }
         }
 
         protected override void OnNavigatedTo(System.Windows.Navigation.NavigationEventArgs e)
         {
 
-            loadingProgressBar.IsLoading = true;
+            
+            currentUser = (User)settings["currentUser"]; //set currentUser
             if (settings.Contains("hashIsValid") && !((bool)settings["hashIsValid"]))
             {
                 loginToUDJ();
@@ -69,66 +74,15 @@ namespace UDJ
         public void loginToUDJ()
         {
             
-            string statusCode = "";
-            IsolatedStorageSettings settings = IsolatedStorageSettings.ApplicationSettings;
-            currentUser = (User)settings["currentUser"];
-            var client = new RestClient("https://udjplayer.com:4897/udj/0_6");
-            var request = new RestRequest("auth", Method.POST);
-
-            request.AddParameter("username", currentUser.username);
-            request.AddParameter("password", currentUser.password);
-
-            client.ExecuteAsync<AuthResponse>(request, response =>
+            NetworkCalls<AuthResponse>.loginToUDJBefore(currentUser);
+            if (!settings.Contains("currentUser"))
             {
-                statusCode = response.StatusCode.ToString();  //stores the Status of the request
-
-
-                if (statusCode == "OK")  //if everything went okay
-                {
-                    AuthResponse userInfo = response.Data;
-                    currentUser.hashID = userInfo.ticket_hash;
-                    currentUser.id = userInfo.user_id;
-                    currentUser.hashCreated = DateTime.Now; //set hashCreated to now
-                    // DateTime hashCreatedEcho = hashCreated; 
-                    string hashIDString = currentUser.hashID;
-                    settings["currentUser"] = currentUser; //save currentUser 
-                    // PhoneApplicationService.Current.State["currUser"] = this; 
-                    buildPlayerList();
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-                else if (statusCode == "NotFound")
-                {
-                    MessageBox.Show("It would be in your best interests to try again. Check your wifis!");
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode == "BadRequest")
-                {
-                    MessageBox.Show("Did you forget to type something? Please try again!");
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode == "Unauthorized")
-                {
-                    MessageBox.Show("Either that's not your username or that's not your password. Please try again!");
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else
-                {
-
-                    MessageBox.Show("There seems to be an error: " + statusCode);
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-
-
-            });
+                loadingProgressBar.IsLoading = false;
+                return;
+            }
+            buildPlayerList();
+            loadingProgressBar.IsLoading = false;
+                
 
         }
 
@@ -142,15 +96,12 @@ namespace UDJ
 
         public void buildPlayerList()
         {
-            currentUser = (User)settings["currentUser"]; //set currentUser
+            loadingProgressBar.IsLoading = true;
+            noNearbyTextBlock.Visibility = Visibility.Collapsed;
             currentUser.isAtPlayer = false;
-            findLocation(watcher);        //find geocoordinates, set accuracy to high
-            
-            
-        }
-        public void findLocation(GeoCoordinateWatcher watcher)
-        {
-            
+
+            //find geocoordinates, set accuracy to high
+
             watcher.MovementThreshold = 20; //checks again if user moves 20 feet
             watcher.PositionChanged += new EventHandler<GeoPositionChangedEventArgs<GeoCoordinate>>(watcher_PositionChanged);
             watcher.Start();
@@ -174,120 +125,10 @@ namespace UDJ
         //TO-DO: Add support for radius and handle if radius is too small or large
         public void findNearestPlayer()
         {
-            string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/0_6/players/";
-
-            //currentUser.latitude = 40.113523; //sample coordinates that return players
-            //currentUser.longitude = -88.224006;
-
-            url += currentUser.latitude + "/";
-            var client = new RestClient(url);
-            var request = new RestRequest(currentUser.longitude.ToString(), Method.GET);
-            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID);
-
-            List<Player> players = new List<Player>(); //list to store returned events
-
-            client.ExecuteAsync<List<Player>>(request, response =>
-            {
-                string hashIDString = currentUser.hashID;
-                players = response.Data; //store the returned events
-                statusCode = response.StatusCode.ToString();
-                
-                    if (statusCode == "NotFound") //no internet connection
-                    {
-                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
-                    else if (statusCode == "Unauthorized")
-                    {
-                        MessageBox.Show("Hmm looks like we got some faulty login details. Please login again!");
-                        NavigationService.Navigate(new Uri("/MainPage.xaml", UriKind.RelativeOrAbsolute));
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
-                    else if (statusCode != "OK") //general error, assuming it is due to incorrect login credentials
-                    {
-                        MessageBox.Show("Whoops! Something went wrong, I'll redirect you to the login screen. Here's the error: " + statusCode);
-                        settings.Remove("currentUser");
-                        loadingProgressBar.IsLoading = false;
-                         this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/MainPage.xaml", UriKind.RelativeOrAbsolute)));
-                         return;
-                    }
-
-
-                    loadingTextBlock.Visibility = Visibility.Collapsed; //get rid of "Loading..." textblock when the players are ready to be retreived
-                    loadingProgressBar.IsLoading = false;
-                    playerListBox.DataContext = new List<Player>(); //clear the eventListBox
-                    playerListBox.DataContext = players;
-
-                    if (!settings.Contains("recentPlayers")) //if there are no recentEvents list saved, then display noRecentTextBlock
-                {
-                    noRecentTextBlock.Visibility = Visibility.Visible;
-
-                }
-                else
-                {
-                    noRecentTextBlock.Visibility = Visibility.Collapsed; //there are recent players so hide noRecentTextBlock
-                    List<PlayerDatePair> recentPlayersList = new List<PlayerDatePair>();
-                    recentPlayersList = (List<PlayerDatePair>)settings["recentPlayers"];  //retrieve events saved in memory
-                    foreach (PlayerDatePair t in recentPlayersList)
-                    {
-                        MemoryStream ms = new MemoryStream(t.playerSerialized);
-                        ms.Position = 0;
-                        t.playerOfPair = (Player)PlayerDatePair.Deserialize(ms, typeof(Player));
-                        ms.Close();
-                    }
-
-                    List<string> checkForDupPlayers = new List<string>();
-                    for (int i = 0; i < recentPlayersList.Count; i++) //for all events the user recently visited
-                    {
-
-                        if (recentPlayersList[i].dateOfSignIn.AddDays(1) < DateTime.Now) //if he signed in over a day ago
-                        {
-                            recentPlayersList.RemoveAt(i); //remove it
-                            i--;
-                            break;
-                        }
-
-                        if (checkForDupPlayers.Contains(recentPlayersList[i].playerOfPair.name)) //if the event is already on the list
-                            recentPlayersList.RemoveAt(i); //remove it
-                        else checkForDupPlayers.Add(recentPlayersList[i].playerOfPair.name); //otherwise add it to the checkFor list
-                    }
-                    recentPlayerListBox.DataContext = new List<PlayerDatePair>(); //clear recentEventListBox
-                    recentPlayerListBox.DataContext = recentPlayersList; //display recentEventsList in the recentEventListBox
-                    settings["recentPlayers"] = recentPlayersList;  //save the revised events list
-                }
-
-                if (!settings.Contains("favPlayers"))  //if there are no favorite events saved
-                {
-                    noFavTextBlock.Visibility = Visibility.Visible; //show noFavTextBlock
-
-                }
-                else
-                {
-                    noFavTextBlock.Visibility = Visibility.Collapsed;  //hide noFavTextBlock
-
-                    List<Player> favPlayersList = new List<Player>(); //clear the favorite events list
-                    
-                        favPlayersList = (List<Player>)settings["favPlayers"];
-                    List<string> checkForDup = new List<string>();
-                    for (int i = 0; i < favPlayersList.Count; i++) //for all events the user recently visited
-                    {
-                        if (checkForDup.Contains(favPlayersList[i].name)) //if the event is already on the list
-                            favPlayersList.RemoveAt(i); //remove it
-                        else checkForDup.Add(favPlayersList[i].name); //otherwise add it to the checkFor list
-                    }
-                    favPlayersListBox.DataContext = new List<Player>(); //clear favEventListBox, the listbox that contains the user's favorited events
-                        favPlayersListBox.DataContext = favPlayersList; 
-                        settings["favPlayers"] = favPlayersList; //save the favorites list
-                    
-                }                 
-            });
+            NetworkCalls<List<Player>>.findNearestPlayerBefore(currentUser);
         }
 
+        
         public void playerListBox_SelectionChanged(object sender, SelectionChangedEventArgs e) //when a user taps an event
         {
             var list = (ListBox)sender;
@@ -420,7 +261,12 @@ namespace UDJ
                 currentUser.isAtPlayer = true; //user is at Event
                 if (statusCode != "Created")
                 {
-                    if (statusCode == "Unauthroized") //User already logged into player
+                    if (statusCode == "0")
+                    {
+                        return;
+                    }
+
+                    else if (statusCode == "Unauthroized") //User already logged into player
                     {
                         //if (alreadyLoggedInPlayer == null)
                         

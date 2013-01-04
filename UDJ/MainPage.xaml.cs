@@ -88,10 +88,11 @@ namespace UDJ
 
         private void login_Click(object sender, RoutedEventArgs e)
         {
+            progressBar.IsLoading = true;
             currentUser.username = username.Text;
             currentUser.password = password.Password;
             loginToEvent();
-            progressBar.IsLoading = true;
+            
             
         }
 
@@ -133,65 +134,8 @@ namespace UDJ
         public void loginToEvent()
         {
 
-            string statusCode = "";
-            IsolatedStorageSettings settings = IsolatedStorageSettings.ApplicationSettings;
-
-            var client = new RestClient("https://udjplayer.com:4897/udj/0_6");
-            var request = new RestRequest("auth", Method.POST);
-
-            request.AddParameter("username", currentUser.username);
-            request.AddParameter("password", currentUser.password);
-
-            client.ExecuteAsync<AuthResponse>(request, response =>
-            {
-                statusCode = response.StatusCode.ToString();  //stores the Status of the request
-
-
-                if (statusCode == "OK")  //if everything went okay
-                {
-                    AuthResponse userInfo = response.Data;
-                    currentUser.hashID = userInfo.ticket_hash;
-                    currentUser.id = userInfo.user_id;
-                    currentUser.hashCreated = DateTime.Now; //set hashCreated to now
-                    // DateTime hashCreatedEcho = hashCreated; 
-                    string hashIDString = currentUser.hashID;
-                    settings["currentUser"] = currentUser; //save currentUser 
-                    // PhoneApplicationService.Current.State["currUser"] = this; 
-                    progressBar.IsLoading = false;
-                    (Application.Current.RootVisual as PhoneApplicationFrame).Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute)); //go to findPlayer
-                }
-                else if (statusCode == "NotFound")
-                {
-                    MessageBox.Show("It would be in your best interests to try again. Check your wifis!");
-                    progressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode == "BadRequest")
-                {
-                    MessageBox.Show("Did you forget to type something? Please try again!");
-                    progressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode == "Unauthorized")
-                {
-                    MessageBox.Show("Either that's not your username or that's not your password. Please try again!");
-                    progressBar.IsLoading = false;
-                    return;
-                }
-
-                else
-                {
-
-                    MessageBox.Show("There seems to be an error: " + statusCode);
-                    progressBar.IsLoading = false;
-                    return;
-                }
-
-
-
-            });
+            NetworkCalls <AuthResponse>.loginToUDJBefore(currentUser);
+            progressBar.IsLoading = false;
 
         }
 

@@ -89,12 +89,8 @@ namespace UDJ
                 if (searchResults.Count == 0)
                     noSongsTB.Visibility = System.Windows.Visibility.Visible;
 
-                
-
-                if (statusCode != "OK")
+                if (statusCode == "0")
                 {
-                    loadingProgressBar.IsLoading = false;
-                    MessageBox.Show("There seems to be an error: " + statusCode);
                     return;
                 }
 
@@ -132,6 +128,13 @@ namespace UDJ
                         }
                     }
                     loadingProgressBar.IsLoading = false;
+                    return;
+                }
+
+                else if (statusCode != "OK")
+                {
+                    loadingProgressBar.IsLoading = false;
+                    MessageBox.Show("There seems to be an error: " + statusCode);
                     return;
                 }
 
@@ -196,7 +199,12 @@ namespace UDJ
                 {
                     statusCode = response.StatusCode.ToString();
 
-                    if (statusCode == "NotFound")
+                    if (statusCode == "0")
+                    {
+                        return;
+                    }
+
+                    else if (statusCode == "NotFound")
                     {
                         for (int i = 0; i < response.Headers.Count; i++)
                         {
@@ -219,7 +227,7 @@ namespace UDJ
                         return;
                     }
 
-                    if (statusCode == "Unauthorized")
+                    else if (statusCode == "Unauthorized")
                     {
                         for (int i = 0; i < response.Headers.Count; i++)
                         {
@@ -263,7 +271,7 @@ namespace UDJ
         private void addSong_Click(object sender, EventArgs e)
         {
             string statusCode = "";
-                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/";
+            string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/songs/";
                 var client = new RestClient(url);
                 var request = new RestRequest(selectedSearchResult.id.ToString(), Method.PUT);
                 request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
@@ -273,7 +281,12 @@ namespace UDJ
                 {
                     statusCode = response.StatusCode.ToString();
 
-                    if (statusCode == "NotFound")
+                    if (statusCode == "0")
+                    {
+                        return;
+                    }
+
+                    else if (statusCode == "NotFound")
                     {
 
                         for (int i = 0; i < response.Headers.Count; i++)
@@ -297,7 +310,7 @@ namespace UDJ
                         return;
                     }
 
-                    if (statusCode == "Unauthorized")
+                    else if (statusCode == "Unauthorized")
                     {
                         for (int i = 0; i < response.Headers.Count; i++)
                         {
