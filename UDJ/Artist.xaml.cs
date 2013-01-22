@@ -64,16 +64,15 @@ namespace UDJ
 
         private void getSongs()
         {
-            //loadingProgressBar.IsLoading = true;
+            loadingProgressBar.IsLoading = true;
+            NetworkCalls<List<LibraryEntry>>.getSongBefore(currentUser, connectedPlayer, selectedArtist);
+            /*
             string statusCode = "";
-
             string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
             var client = new RestClient(url);
-
             var request = new RestRequest("available_music/artists/" + selectedArtist, Method.GET);
-
             request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
-
+            
             client.ExecuteAsync<List<LibraryEntry>>(request, response =>
             {
 
@@ -146,6 +145,7 @@ namespace UDJ
                 songLB.DataContext = searchResults;
 
             });
+            */
         }
 
         private void songLB_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -188,6 +188,8 @@ namespace UDJ
             else
             {
                 loadingProgressBar.IsLoading = false;
+                NetworkCalls<List<string>>.upOrDownVoteBefore(currentUser, connectedPlayer, upOrDown, selectedSong.song.id.ToString(), selectedSong.song.title, true);
+                /*
                 string statusCode = "";
                 string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/songs/" + selectedSong.song.id.ToString() + "/";
                 var client = new RestClient(url);
@@ -264,12 +266,15 @@ namespace UDJ
                     this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/NowPlaying.xaml", UriKind.RelativeOrAbsolute)));
                 });
 
-
+                */
             }
         }
 
         private void addSong_Click(object sender, EventArgs e)
         {
+            loadingProgressBar.IsLoading = true;
+            NetworkCalls<List<string>>.addSongBefore(currentUser, connectedPlayer, selectedSearchResult.id.ToString(), true);
+            /*
             string statusCode = "";
             string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/songs/";
                 var client = new RestClient(url);
@@ -332,7 +337,7 @@ namespace UDJ
                         return;
                     }
 
- /*                   else if (statusCode == "Conflict")
+                    else if (statusCode == "Conflict")
                     {
                         
                             selectedSong = new ActivePlaylistEntry();
@@ -342,7 +347,7 @@ namespace UDJ
                        
                         return;
 
-                    } */
+                    } 
                     else if (statusCode != "Created")
                     {
                         MessageBox.Show("There seems to be an error: " + statusCode);
@@ -357,7 +362,7 @@ namespace UDJ
                 }
             });
 
-
+            */
         }
 
         private void returnToEventsNoLogOut_Click(object sender, EventArgs e)

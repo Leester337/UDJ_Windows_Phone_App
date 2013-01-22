@@ -50,6 +50,7 @@ namespace UDJ
         public int size_limit { get; set; }
         public bool has_password { get; set; }
         public string password { get; set; }
+        public int volume { get; set; }
 
      /*   public override string ToString()
         {

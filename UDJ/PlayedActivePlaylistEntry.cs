@@ -20,5 +20,27 @@ namespace UDJ
         public string time_added { get; set; }
         public string time_played { get; set; }
         public User adder { get; set; }
+        public string artist
+        {
+            get
+            {
+                return song.artist;
+            }
+            set
+            {
+                song.artist = value;
+            }
+        }
+        public string title
+        {
+            get
+            {
+                return song.title;
+            }
+            set
+            {
+                song.title = value;
+            }
+        }
     }
 }

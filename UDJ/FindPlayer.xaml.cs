@@ -60,7 +60,7 @@ namespace UDJ
 
             
             currentUser = (User)settings["currentUser"]; //set currentUser
-            if (settings.Contains("hashIsValid") && !((bool)settings["hashIsValid"]))
+            if (!currentUser.hashIsValid)
             {
                 loginToUDJ();
                 return;
@@ -78,10 +78,13 @@ namespace UDJ
             if (!settings.Contains("currentUser"))
             {
                 loadingProgressBar.IsLoading = false;
-                return;
+                this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/MainPage.xaml", UriKind.RelativeOrAbsolute)));
             }
-            buildPlayerList();
-            loadingProgressBar.IsLoading = false;
+            else
+            {
+                buildPlayerList();
+                loadingProgressBar.IsLoading = false;
+            }
                 
 
         }
@@ -110,14 +113,15 @@ namespace UDJ
         void watcher_PositionChanged(object sender, GeoPositionChangedEventArgs<GeoCoordinate> e)
         {
             Deployment.Current.Dispatcher.BeginInvoke(() => myPositionChanged(e));
-            
+            watcher.PositionChanged -= new EventHandler<GeoPositionChangedEventArgs<GeoCoordinate>>(watcher_PositionChanged);
+            watcher.Stop(); //stop watcher to conserve battery
+
         }
 
         void myPositionChanged(GeoPositionChangedEventArgs<GeoCoordinate> e)
         {
             currentUser.latitude = e.Position.Location.Latitude; //set coordinates
             currentUser.longitude = e.Position.Location.Longitude;
-            watcher.Stop(); //stop watcher to conserve battery
             findNearestPlayer();
             
         }
@@ -205,6 +209,7 @@ namespace UDJ
                 passwordLabel.Visibility = Visibility.Collapsed;
                 password.Visibility = Visibility.Collapsed;
                 passwordButton.Visibility = Visibility.Collapsed;
+                e.Cancel = true;
                 return;
             }
 
@@ -219,155 +224,10 @@ namespace UDJ
 
         public void loginToPlayer()
         {
-            bool userIsOwnerOrAdmin = false;
-            foreach (User t in selectedPlayer.admins){
-                if (currentUser.username == t.username)
-                {
-                    userIsOwnerOrAdmin = true;
-                    break;
-                }
-            }
-            if (selectedPlayer.owner.username == currentUser.username)
-                userIsOwnerOrAdmin = true;
-            if (userIsOwnerOrAdmin)
-            {
-                currentUser.isOwnerOrAdmin = true;
-                this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/NowPlaying.xaml", UriKind.RelativeOrAbsolute)));
-                return;
-            }
-            else currentUser.isOwnerOrAdmin = false;
-            string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/0_6/players/" + selectedPlayer.id + "/users/";
-            var client = new RestClient(url);
-            var request = new RestRequest("user", Method.PUT);
-            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID);
-            if (selectedPlayer.has_password && selectedPlayer.password == null)
-            {
-                passwordRect.Visibility = Visibility.Visible;
-                passwordTitle.Visibility = Visibility.Visible;
-                passwordLabel.Visibility = Visibility.Visible;
-                password.Visibility = Visibility.Visible;
-                passwordButton.Visibility = Visibility.Visible;
-                return;
-            }
-
-            if (selectedPlayer.has_password && selectedPlayer.password != null)
-                request.AddHeader("X-Udj-Player-Password", selectedPlayer.password);
-
-            client.ExecuteAsync<Player>(request, response =>
-            {
-                Player alreadyLoggedInPlayer = response.Data; //if the user is already logged into an event, the event is returned and saved here
-                statusCode = response.StatusCode.ToString();
-                currentUser.isAtPlayer = true; //user is at Event
-                if (statusCode != "Created")
-                {
-                    if (statusCode == "0")
-                    {
-                        return;
-                    }
-
-                    else if (statusCode == "Unauthroized") //User already logged into player
-                    {
-                        //if (alreadyLoggedInPlayer == null)
-                        
-                        var message = MessageBox.Show("Woah slow down cowboy, this requires a password. Tap it again and put it in when you're asked. Click okay if you want me to do that for you.", "YOU SHALL NOT PASS", MessageBoxButton.OKCancel);
-                        selectedPlayer.has_password = true;
-                        if (message == MessageBoxResult.OK)
-                            loginToPlayer();
-                        else deselectAll();
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-                    if (statusCode == "Conflict") //User already logged into player
-                    {
-                        //if (alreadyLoggedInPlayer == null)
-                        MessageBox.Show("It seems you're already logged into another player. Go to " + alreadyLoggedInPlayer.name + " and logout before you log in here!");
-                        deselectAll();
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
-                    if (statusCode == "Forbidden") //User already logged into player
-                    {
-                        string cause = "";
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            if (response.Headers[i].Value.ToString().Contains("player-full"))
-                            {
-                                cause = "full";
-                            }
-                            else if (response.Headers[i].Value.ToString().Contains("banned"))
-                            {
-                                cause = "banned";
-                            }
-                            else cause = "unknown";
-                        }
-
-                        switch (cause)
-                        {
-                            case "full":
-                                MessageBox.Show("Sorry buddy, looks like " + selectedPlayer.owner.username + ", the owner, has a limit to this room. Tell him you want in!");
-                                break;
-                            case "banned":
-                                MessageBox.Show("Yikes, looks like the owners don't want you here. Try talking to " + selectedPlayer.owner.username + ", the owner, directly.");
-                                break;
-                            default:
-                                MessageBox.Show("WARNING WARNING: You are forbidden to join this event. Sorry buddy.");
-                                break;
-                        }
-                        
-                        deselectAll();
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-                    else if (statusCode == "NotFound")
-                    {
-                        MessageBox.Show("Hmm either this player doesn't exist anymore or you lost your internet connection. Try again later!");
-                        deselectAll();
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-                    else
-                    {
-                        var answer = MessageBox.Show("There seems to be an error: " + statusCode);
-                        loadingProgressBar.IsLoading = false;
-                        if (answer == MessageBoxResult.OK)
-                            return;
-                    }
-                }
-
-                (Application.Current.RootVisual as PhoneApplicationFrame).Navigate(new Uri("/NowPlaying.xaml", UriKind.RelativeOrAbsolute)); //navigate to NowPlaying
-
-            });
-            
-            
-
+            NetworkCalls<List<String>>.loginToPlayerBefore(currentUser, selectedPlayer);
         }
 
-        private void deselectAll()
-        {
-            if (playerListBox.SelectedItem != null)
-                playerListBox.SelectedItem = null;
-            else if (recentPlayerListBox.SelectedItem != null)
-                recentPlayerListBox.SelectedItem = null;
-            else favPlayersListBox.SelectedItem = null;
-        }
-
-        private void favPlayerListBox_Hold(object sender, Microsoft.Phone.Controls.GestureEventArgs e) //user hold down event in favEventListBox
-        {
-            Player currPlayer = (Player)(sender as StackPanel).DataContext; //get event that's being held
-            var answer = MessageBox.Show("Would you like to remove " + currPlayer.name + " from your favorites?", "Remove from favorites?", MessageBoxButton.OKCancel);
-            if (answer == MessageBoxResult.OK)
-            {
-                List<Player> favPlayersList = new List<Player>();
-                favPlayersList = (List<Player>)settings["favPlayers"]; //load favorites
-                favPlayersList.Remove(currPlayer);
-                settings["favPlayers"] = favPlayersList;
-            }
-            buildPlayerList();
-        }
-
-        
+     
 
         private void pivotControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -425,6 +285,20 @@ namespace UDJ
         {
             Player currPlayer = (Player)(sender as TextBlock).DataContext; //get event that's being held
             var answer = MessageBox.Show("Would you like to remove " + currPlayer.name + " from your favorites?", "Remove from favorites?", MessageBoxButton.OKCancel);
+            if (answer == MessageBoxResult.OK)
+            {
+                List<Player> favPlayersList = new List<Player>();
+                favPlayersList = (List<Player>)settings["favPlayers"]; //load favorites
+                favPlayersList.Remove(currPlayer);
+                settings["favPlayers"] = favPlayersList;
+            }
+            buildPlayerList();
+        }
+
+        private void contextMenuRemove_Click(object sender, RoutedEventArgs e)
+        {
+            Player currPlayer = (Player)(((sender as MenuItem).Parent as ContextMenu).DataContext); //get event that's being held
+            var answer = MessageBox.Show("Are you sure you want to remove " + currPlayer.name + " from your favorites?", "Remove from favorites?", MessageBoxButton.OKCancel);
             if (answer == MessageBoxResult.OK)
             {
                 List<Player> favPlayersList = new List<Player>();

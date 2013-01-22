@@ -140,9 +140,10 @@ namespace UDJ
                 DateTime systemDate = DateTime.Now;
                 DateTime invalidDate = currentUser.hashCreated.AddDays(1);
                 hashIsValid = invalidDate < systemDate ? false : true;
-
+                settings["currentUser"] = currentUser;
             }
 
+            
             bool containsPlayer = settings.Contains("connectedPlayer");
             ///hashIsValid = false;
             if (hashIsValid)
@@ -160,7 +161,6 @@ namespace UDJ
             }
             else if (settings.Contains("currentUser"))
             {
-                settings["hashIsValid"] = false;
                 page = "find";
             }
 
@@ -254,7 +254,7 @@ namespace UDJ
 
             // Create the frame but don't set it as RootVisual yet; this allows the splash
             // screen to remain active until the application is ready to render.
-            RootFrame = new PhoneApplicationFrame();
+            RootFrame = new TransitionFrame();
             RootFrame.Navigated += CompleteInitializePhoneApplication;
 
             // Handle navigation failures

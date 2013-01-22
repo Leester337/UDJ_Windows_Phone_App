@@ -36,21 +36,24 @@ using System.Windows.Media.Imaging;
 
 namespace UDJ
 {
-    public partial class PivotPage1 : PhoneApplicationPage
+    public partial class NowPlaying : PhoneApplicationPage
     {
         static IsolatedStorageSettings settings = IsolatedStorageSettings.ApplicationSettings;
 
         User currentUser;
         Player connectedPlayer;
-        PlayedActivePlaylistEntry currentSong = new PlayedActivePlaylistEntry();
+        internal PlayedActivePlaylistEntry currentSong = new PlayedActivePlaylistEntry();
         ActivePlaylistEntry selectedSong = null;
         LibraryEntry selectedSearchResult = null;
+        PlayedActivePlaylistEntry selectedRecent = null;
         private object _selected;
         private object _queueSelected;
         private object _Artistselected;
         bool invalidPlayer = false;
+        bool paused = false;
+        bool isVolOpen = false;
 
-        public PivotPage1()
+        public NowPlaying()
         {
             InitializeComponent();
             
@@ -110,115 +113,16 @@ namespace UDJ
 
         private void changeOwnerLayout()
         {
-
+       
         }
 
         private void updateNowPlaying()
         {
+            loadingProgressBar.IsLoading = true;
             if (searchTitle.Visibility == System.Windows.Visibility.Visible)
                 searchTitle.Visibility = System.Windows.Visibility.Collapsed;
-            string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
-            var client = new RestClient(url);
-            var request = new RestRequest("active_playlist", Method.GET);
-            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
 
-            client.ExecuteAsync<ActivePlaylistResponse>(request, responseUpdate =>
-            {
-                ActivePlaylistResponse activePlaylistResponse = responseUpdate.Data; //Activeplaylist response is the current song playing and active playlist
-                statusCode = responseUpdate.StatusCode.ToString();
-                string statuscodestring = statusCode;
-
-                if (statusCode == "0")
-                {
-                    return;
-                }
-
-                else if (statusCode == "Unauthorized")
-                {
-                    invalidPlayer = true;
-                    for (int i = 0; i < responseUpdate.Headers.Count; i++)
-                    {
-                        if (responseUpdate.Headers[i].Value.ToString().Contains("kicked"))
-                        {
-                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-
-                        if (responseUpdate.Headers[i].Value.ToString().Contains("begin-participating"))
-                        {
-                            MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-                    }
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode == "NotFound")  //no internet connnection
-                {
-                    for (int i = 0; i < responseUpdate.Headers.Count; i++)
-                    {
-                        if (responseUpdate.Headers[i].Value.ToString().Contains("inactive"))
-                        {
-                            invalidPlayer = true;
-                            MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-                    }
-                    MessageBox.Show("Whoops. Either this player doesn't exist or your data connection doesn't exist");
-                    loadingProgressBar.IsLoading = false;
-                    returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                    return;
-                }
-
-                else if (statusCode != "OK")
-                {
-                    MessageBox.Show("There seems to be an error: " + statusCode);
-                    currentSong = new PlayedActivePlaylistEntry();
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-                queueLB.DataContext = new List<ActivePlaylistEntry>(); //clear the queue listbox
-
-                currentSong = activePlaylistResponse.current_song;
-                try
-                {
-                    loadingProgressBar.IsLoading = false;
-                    artistTB.Text = currentSong.song.artist;
-                    songTB.Text = currentSong.song.title; //if nothing is playing
-
-                    albumTB.Text = currentSong.song.album;
-                    upVotesTB.Text = currentSong.upvoters.Count.ToString();
-                    downVotesTB.Text = currentSong.downvoters.Count.ToString();
-
-                    long minutes = currentSong.song.duration / 60; //parse duration into minutes and seconds
-                    long seconds = currentSong.song.duration % 60;
-                    durationTB.Text = minutes.ToString() + " minutes and " + seconds.ToString() + " seconds";
-                }
-                catch (NullReferenceException)
-                {
-                   
-                    MessageBox.Show("Try adding something to the playlist now!", "There's nothing playing :(", MessageBoxButton.OK);
-                }
-
-
-                List<ActivePlaylistEntry> queue = new List<ActivePlaylistEntry>();
-                queue = activePlaylistResponse.active_playlist;
-                foreach (ActivePlaylistEntry t in queue)
-                {
-                    t.updatePageInfo();
-                }
-                queueLB.DataContext = queue;
-                settings["connectedPlayer"] = connectedPlayer;
-
-
-            });
-
-            
+            NetworkCalls<ActivePlaylistResponse>.updateNowPlayingBefore(currentUser, connectedPlayer);
         }
 
         private void searchButton_Click(object sender, RoutedEventArgs e) //when user clicks search button
@@ -226,6 +130,7 @@ namespace UDJ
            
                 if (searchTitle.Visibility == System.Windows.Visibility.Visible)
                     searchTitle.Visibility = System.Windows.Visibility.Collapsed;
+                searchListBox.DataContext = new List<LibraryEntry>();  //clear searchListBox
 
                 if (searchTextBox.Text == "" || searchTextBox.Text == "Enter your search here")
                 {
@@ -234,84 +139,8 @@ namespace UDJ
                 }
 
                 loadingProgressBar.IsLoading = true;
-                string statusCode = "";
-                searchTitle.Visibility = Visibility.Collapsed; //hide searchTitle textblock
-                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
-                var client = new RestClient(url);
 
-                var request = new RestRequest("available_music?query=" + searchTextBox.Text, Method.GET);
-                request.AddHeader("X-Udj-Api-Version", "0.2");
-                request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
-
-                client.ExecuteAsync<List<LibraryEntry>>(request, response =>
-                {
-                    searchListBox.DataContext = new List<LibraryEntry>();  //clear searchListBox
-                    List<LibraryEntry> searchResults = response.Data;
-                    statusCode = response.StatusCode.ToString();
-                    string statuscodestring = statusCode;
-
-
-                    if (searchResults.Count == 0)
-                    { //if no results are returned
-                        searchTitle.Visibility = Visibility.Visible;
-                    }
-
-                    if (statusCode == "0")
-                    {
-                        return;
-                    }
-                    
-
-                    else if (statusCode == "Unauthorized")
-                    {
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            if (response.Headers[i].Value.ToString().Contains("kicked"))
-                            {
-                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
-                                returnToEventsNoLogOut_Click(sender, e);
-                                return;
-                            }
-                            if (response.Headers[i].Value.ToString().Contains("begin-participating"))
-                            {
-                                MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                return;
-                            }
-                        }
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
-                    else if (statusCode == "NotFound")
-                    {
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            if (response.Headers[i].Value.ToString().Contains("inactive"))
-                            {
-                                MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                return;
-                            }
-                        }
-                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
-                    else if (statusCode != "OK")
-                    {
-                        MessageBox.Show("There seems to be an error: " + statusCode);
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
-                    loadingProgressBar.IsLoading = false;
-                    searchListBox.DataContext = searchResults;
-
-                });
-            
-           
+                NetworkCalls<List<LibraryEntry>>.searchButtonBefore(currentUser, connectedPlayer, searchTextBox.Text);
            
         }
 
@@ -320,86 +149,10 @@ namespace UDJ
             if (invalidPlayer)
                 return;
             loadingProgressBar.IsLoading = true;
-            string statusCode = "";
-            searchTitle.Visibility = Visibility.Collapsed; //hide searchTitle textblock
-            string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
-            var client = new RestClient(url);
+            artistLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
 
-            var request = new RestRequest("available_music/artists", Method.GET);
+            NetworkCalls<List<string>>.getArtistsBefore(currentUser, connectedPlayer);
 
-            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
-
-            client.ExecuteAsync<List<string>>(request, response =>
-            {
-                artistLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
-                List<string> searchResults = response.Data;
-                statusCode = response.StatusCode.ToString();
-                string statuscodestring = statusCode;
-
-                if (statusCode == "0")
-                {
-                    return;
-                }
-
-                else if (statusCode == "NotFound")
-                {
-                    for (int i = 0; i < response.Headers.Count; i++)
-                    {
-                        if (response.Headers[i].Value.ToString().Contains("inactive"))
-                        {
-                            if (invalidPlayer)
-                                return;
-                            invalidPlayer = true;
-                            MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-                    }
-                    MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                    if (invalidPlayer)
-                        invalidPlayer = true;
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode == "Unauthorized")
-                {
-                    invalidPlayer = true;
-                    for (int i = 0; i < response.Headers.Count; i++)
-                    {
-                        if (response.Headers[i].Value.ToString().Contains("kicked"))
-                        {
-                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-
-                        if (response.Headers[i].Value.ToString().Contains("begin-participating"))
-                        {
-                            MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-                    }
-                    if (searchResults.Count == 0)
-                    { //if no results are returned
-                        searchTitle.Visibility = Visibility.Visible;
-                    }
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode != "OK")
-                {
-                    MessageBox.Show("There seems to be an error: " + statusCode);
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                loadingProgressBar.IsLoading = false;
-                artistLB.DataContext = searchResults;
-
-            });
         }
 
        
@@ -426,81 +179,10 @@ namespace UDJ
             else
             {
                 loadingProgressBar.IsLoading = false;
-                string statusCode = "";
-                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/songs/" + selectedSong.song.id.ToString() + "/";
-                var client = new RestClient(url);
-                var request = new RestRequest(upOrDown, Method.POST);
-                ActivePlaylistEntry selectedSongString = selectedSong;
-                request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
 
-                client.ExecuteAsync(request, response =>
-                {
-                    statusCode = response.StatusCode.ToString();
+                NetworkCalls<List<string>>.upOrDownVoteBefore(currentUser, connectedPlayer, upOrDown, selectedSong.song.id.ToString(), selectedSong.song.title, false);
 
-                    if (statusCode == "0")
-                    {
-                        return;
-                    }
-
-                    else if (statusCode == "NotFound")
-                    {
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            if (response.Headers[i].Value.ToString().Contains("song"))
-                            {
-                                MessageBox.Show("Hmm that song doesn't exist in the library anymore. Try picking another one!");
-                                loadingProgressBar.IsLoading = false;
-                                return;
-                            }
-                            
-                                if (response.Headers[i].Value.ToString().Contains("inactive"))
-                                {
-                                    MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
-                                    returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                    return;
-                                }
-                            
-                        }
-                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                        return;
-                    }
-
-                    else if (statusCode == "Unauthorized")
-                    {
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            if (response.Headers[i].Value.ToString().Contains("kicked"))
-                            {
-                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                loadingProgressBar.IsLoading = false;
-                                return;
-                            }
-
-                            if (response.Headers[i].Value.ToString().Contains("begin-participating"))
-                            {
-                                MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                return;
-                            }
-                        }
-                    }
-
-                    else if (statusCode != "OK")
-                    {
-                        MessageBox.Show("There seems to be an error: " + statusCode);
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-                    
-                    else
-                    {
-                        loadingProgressBar.IsLoading = false;
-                        MessageBox.Show("Congrats, you've successfully " + upOrDown + "d " + selectedSong.song.title + "!", upOrDown[0].ToString().ToUpper() + upOrDown.Substring(1) + " was successful", MessageBoxButton.OK);
-                    }
-                    updateNowPlaying();
-                });
-
+                
 
             }
         }
@@ -571,158 +253,18 @@ namespace UDJ
         {
             
             loadingProgressBar.IsLoading = true;
-            string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/available_music/random_songs?number_of_randoms=25";
-            var client = new RestClient(url);
-            var request = new RestRequest("", Method.GET);
-            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
-            //request.AddHeader("Content-Type", "text/json");
-            //string jsonObject = @"[{ ""lib_id"":" +  selectedSearchResult.id + @", ""client_request_id"":" + minClientReqID + "}]"; //create JSON object
-            //request.RequestFormat = DataFormat.Json;
-            //request.AddParameter("text/json", jsonObject, ParameterType.RequestBody);  //add JSON object as string
+            NetworkCalls<List<LibraryEntry>>.randomBefore(currentUser, connectedPlayer);
 
-
-            client.ExecuteAsync<List<LibraryEntry>>(request, response =>
-            {
-                
-                List<LibraryEntry> searchResults = response.Data;
-                loadingProgressBar.IsLoading = false;
-                statusCode = response.StatusCode.ToString();
-                string statuscodestring = statusCode;
-
-                if (statusCode == "0")
-                {
-                    return;
-                }
-
-                else if (statusCode == "NotFound")
-                {
-                    for (int i = 0; i < response.Headers.Count; i++)
-                    {
-                        if (response.Headers[i].Value.ToString().Contains("inactive"))
-                        {
-                            MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-                    }
-                    MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode == "Unauthorized")
-                {
-                    for (int i = 0; i < response.Headers.Count; i++)
-                    {
-                        if (response.Headers[i].Value.ToString().Contains("kicked"))
-                        {
-                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-
-                        if (response.Headers[i].Value.ToString().Contains("begin-participating"))
-                        {
-                            MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-                    }
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode != "OK")
-                {
-                    MessageBox.Show("There seems to be an error: " + statusCode);
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-                randomLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
-                randomLB.DataContext = searchResults;
-
-
-            });
+            
         }
 
         private void getRecent()
         {
 
             loadingProgressBar.IsLoading = true;
-            string statusCode = "";
-            string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id;
-            var client = new RestClient(url);
-            var request = new RestRequest("recently_played?max_songs=25", Method.GET);
-            request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
-            //request.AddHeader("Content-Type", "text/json");
-            //string jsonObject = @"[{ ""lib_id"":" +  selectedSearchResult.id + @", ""client_request_id"":" + minClientReqID + "}]"; //create JSON object
-            //request.RequestFormat = DataFormat.Json;
-            //request.AddParameter("text/json", jsonObject, ParameterType.RequestBody);  //add JSON object as string
+            NetworkCalls<List<PlayedActivePlaylistEntry>>.recentBefore(currentUser, connectedPlayer);
 
-
-            client.ExecuteAsync<List<LibraryEntry>>(request, response =>
-            {
-
-                List<LibraryEntry> searchResults = response.Data;
-                loadingProgressBar.IsLoading = false;
-                statusCode = response.StatusCode.ToString();
-                string statuscodestring = statusCode;
-
-                if (statusCode == "0")
-                {
-                    return;
-                }
-
-                else if (statusCode == "NotFound")
-                {
-                    for (int i = 0; i < response.Headers.Count; i++)
-                    {
-                        if (response.Headers[i].Value.ToString().Contains("inactive"))
-                        {
-                            MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-                    }
-                    MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode == "Unauthorized")
-                {
-                    for (int i = 0; i < response.Headers.Count; i++)
-                    {
-                        if (response.Headers[i].Value.ToString().Contains("kicked"))
-                        {
-                            MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-
-                        if (response.Headers[i].Value.ToString().Contains("begin-participating"))
-                        {
-                            MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
-                            returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                            return;
-                        }
-                    }
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-
-                else if (statusCode != "OK")
-                {
-                    MessageBox.Show("There seems to be an error: " + statusCode);
-                    loadingProgressBar.IsLoading = false;
-                    return;
-                }
-                recentlyPlayedLB.DataContext = new List<LibraryEntry>();  //clear searchListBox
-                recentlyPlayedLB.DataContext = searchResults;
-
-
-            });
+            
         }
 
         private void pivotControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -731,14 +273,19 @@ namespace UDJ
                 ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar0"];
              * * */
             this.Focus();
-            if (ApplicationBar != (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar3"])
-            ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar3"];
-
             if (((Pivot)sender).SelectedIndex == 0 || ((Pivot)sender).SelectedIndex == 1)
             {
+                
                 if (!invalidPlayer)
                     updateNowPlaying();
             }
+
+            if (((Pivot)sender).SelectedIndex == 0 && currentUser.isOwnerOrAdmin)
+                ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["ownerBar"];
+            else if (ApplicationBar != (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar3"])
+            ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar3"];
+
+            
             if (((Pivot)sender).SelectedIndex == 3)
                 randomList();
            // if (((Pivot)sender).SelectedIndex == 4)
@@ -753,87 +300,10 @@ namespace UDJ
 
         private void addSong_Click(object sender, EventArgs e)
         {
-            //minClientReqIDMap[selectedSearchResult.id] = minClientReqID;
-                string statusCode = "";
-                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/active_playlist/songs/";
-                var client = new RestClient(url);
-                var request = new RestRequest(selectedSearchResult.id.ToString(), Method.PUT);
-                request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
-                
-                
-                client.ExecuteAsync(request, response =>
-                {
-                    statusCode = response.StatusCode.ToString();
-
-                    if (statusCode == "0")
-                    {
-                        return;
-                    }
-
-                    else if (statusCode == "NotFound")
-                    {
-
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            if (response.Headers[i].Value.ToString().Contains("song"))
-                            {
-                                MessageBox.Show("Hmm that song doesn't exist in the library anymore. Try picking another one!");
-                                loadingProgressBar.IsLoading = false;
-                                return;
-                            }
-                        }
-                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
-                    else if (statusCode == "Unauthorized")
-                    {
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            if (response.Headers[i].Value.ToString().Contains("kicked"))
-                            {
-                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                return;
-                            }
-
-                            if (response.Headers[i].Value.ToString().Contains("begin-participating"))
-                            {
-                                MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                return;
-                            }
-                        }
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
- /*                   else if (statusCode == "Conflict")
-                    {
-                        
-                            selectedSong = new ActivePlaylistEntry();
-                            selectedSong.song = selectedSearchResult;
-                            upOrDownVote_Click("upvote");
-                            
-                       
-                        return;
-
-                    } */
-                    else if (statusCode != "Created")
-                    {
-                        MessageBox.Show("There seems to be an error: " + statusCode);
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-                    var answer = MessageBox.Show("Your song was successfully added and upvoted!", "Song added", MessageBoxButton.OK);
-                    if (answer == MessageBoxResult.OK)
-                    {
-                        updateNowPlaying();
-                    }
-                });
-                
-            
+            loadingProgressBar.IsLoading = true;
+            string songID = selectedSearchResult == null ? selectedRecent.song.id.ToString() : selectedSearchResult.id.ToString();
+            NetworkCalls<List<string>>.addSongBefore(currentUser, connectedPlayer, songID, false);
+           
         }
 
         private void returnToEvents_Click(object sender, EventArgs e)
@@ -841,12 +311,6 @@ namespace UDJ
             
             NavigationService.Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute));
             logoutUser();
-        }
-
-        private void returnToEventsNoLogOut_Click(object sender, EventArgs e)
-        {
-            
-            this.Dispatcher.BeginInvoke(() => this.NavigationService.Navigate(new Uri("/FindPlayer.xaml", UriKind.RelativeOrAbsolute)));
         }
 
         private void artistLB_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -936,7 +400,7 @@ namespace UDJ
             {
                 _selected = list.SelectedItem;
                 ApplicationBar = (Microsoft.Phone.Shell.ApplicationBar)Resources["appbar2"];
-                selectedSearchResult = (LibraryEntry)recentlyPlayedLB.SelectedItem;
+                selectedRecent = (PlayedActivePlaylistEntry)recentlyPlayedLB.SelectedItem;
             }
 
 
@@ -967,10 +431,17 @@ namespace UDJ
 
         protected override void OnBackKeyPress(System.ComponentModel.CancelEventArgs e)
         {
+            if (isVolOpen)
+            {
+                volFadeOut();
+                isVolOpen = false;
+                e.Cancel = true;
+                return;
+            }
             
             if (!NavigationService.CanGoBack)
             {
-                var answer = MessageBox.Show("would you like to leave UDJ? If not, we'll take you back to the players.", "Exit?", MessageBoxButton.OKCancel);
+                var answer = MessageBox.Show("If you want to exit UDJ, tap OK. Otherwise, Cancel will take you back to the players.", "Exit?", MessageBoxButton.OKCancel);
 
                 if (answer == MessageBoxResult.Cancel)
                 {
@@ -991,71 +462,158 @@ namespace UDJ
             }
             else 
             {
-                string statusCode = "";
-                string url = "https://udjplayer.com:4897/udj/0_6/players/" + connectedPlayer.id + "/users/";
-                var client = new RestClient(url);
-                var request = new RestRequest("user", Method.DELETE);
-                request.AddHeader("X-Udj-Ticket-Hash", currentUser.hashID.ToString());
+                NetworkCalls<List<string>>.logoutBefore(currentUser, connectedPlayer);
 
-                client.ExecuteAsync(request, response =>
-                {
-                    statusCode = response.StatusCode.ToString();
+               
+            }
+        }
 
-                    if (statusCode == "0")
-                    {
-                        return;
-                    }
+        private void MyContextMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            if (!currentUser.isOwnerOrAdmin)
+            {
+                ContextMenu contextMenu = sender as ContextMenu;
+                contextMenu.IsOpen = false;
+                MessageBox.Show("Ask " + connectedPlayer.owner.username + " to make you an Admin if you want to delete songs or immediately play them!");
+            }
+                
+        }
 
-                    else if (statusCode == "NotFound")
-                    {
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            
-
-                            if (response.Headers[i].Value.ToString().Contains("inactive"))
-                            {
-                                MessageBox.Show("Looks like this player isn't running anymore. Try a different player!");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                return;
-                            }
-
-                        }
-                        MessageBox.Show("You don't seemed to be connected to the internet, please check your settings and try again");
-                        return;
-                    }
-
-                    else if (statusCode == "Unauthorized")
-                    {
-                        for (int i = 0; i < response.Headers.Count; i++)
-                        {
-                            if (response.Headers[i].Value.ToString().Contains("kicked"))
-                            {
-                                MessageBox.Show("Ouch. You've been kicked. I'm going to take you back to the players, just login to this player again to participate.");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                loadingProgressBar.IsLoading = false;
-                                return;
-                            }
-
-                            if (response.Headers[i].Value.ToString().Contains("begin-participating"))
-                            {
-                                MessageBox.Show("Looks like you've timed out pretty hard. Let's go back to the players page and try again.");
-                                returnToEventsNoLogOut_Click(new object(), new EventArgs());
-                                return;
-                            }
-                        }
-                    }
-
-                    else if (statusCode != "OK")
-                    {
-                        MessageBox.Show("There seems to be an error: " + statusCode);
-                        loadingProgressBar.IsLoading = false;
-                        return;
-                    }
-
-                    
-                });
+        private void contextMenuPlay_Click(object sender, RoutedEventArgs e)
+        {
+            selectedSong = (((sender as MenuItem).Parent as ContextMenu).DataContext as ActivePlaylistEntry);
+            var answer = MessageBox.Show("Are you sure you want to play this now? This will stop " + currentSong.song.title + " from playing.", "Play Now?", MessageBoxButton.OKCancel);
+            if (answer == MessageBoxResult.Cancel)
+            {
+                MenuItem contextMenuItem = sender as MenuItem;
+                ((ContextMenu)(contextMenuItem.Parent)).IsOpen = false;
+            }
+            else
+            {
+                MenuItem contextMenuItem = sender as MenuItem;
+                ((ContextMenu)(contextMenuItem.Parent)).IsOpen = false;
+                NetworkCalls<List<string>>.playSongBefore(currentUser, connectedPlayer, selectedSong.song.id);
 
             }
+
+        }
+
+        private void contextMenuRemove_Click(object sender, RoutedEventArgs e)
+        {
+            selectedSong = (((sender as MenuItem).Parent as ContextMenu).DataContext as ActivePlaylistEntry);
+            //ListBoxItem contextMenuListItem = queueLB.ItemContainerGenerator.ContainerFromItem((sender as ContextMenu).DataContext) as ListBoxItem;
+            var answer = MessageBox.Show("Are you sure you want to remove " + selectedSong.title + " from the active playlist? You can always add it again later, but it's " + selectedSong.total_votes + " votes will be lost!", "Remove from Playlist?", MessageBoxButton.OKCancel);
+            if (answer == MessageBoxResult.Cancel)
+            {
+                MenuItem contextMenuItem = sender as MenuItem;
+                ((ContextMenu)(contextMenuItem.Parent)).IsOpen = false;
+            }
+            else
+            {
+                MenuItem contextMenuItem = sender as MenuItem;
+                ((ContextMenu)(contextMenuItem.Parent)).IsOpen = false;
+                loadingProgressBar.IsLoading = true;
+                NetworkCalls<List<string>>.removeSongBefore(currentUser, connectedPlayer, selectedSong.song.id);
+
+            }
+        }
+
+        private void changeVolume_Click(object sender, EventArgs e)
+        {
+            isVolOpen = true;
+            volSlider.Value = connectedPlayer.volume;
+            volNum.Text = connectedPlayer.volume.ToString();
+            CreateFadeInOutAnimation(0.0, 0.75, 0.0, 1.0).Begin();
+
+
+        }
+
+        private void volFadeOut()
+        {
+            CreateFadeInOutAnimation(0.75, 0.0, 1.0, 0.0).Begin();
+        }
+
+        private Storyboard CreateFadeInOutAnimation(double recFrom, double recTo, double canvasFrom, double canvasTo)
+        {
+            Storyboard sb = new Storyboard();
+            DoubleAnimation recFadeInAnimation = new DoubleAnimation();
+            recFadeInAnimation.From = recFrom;
+            recFadeInAnimation.To = recTo;
+            recFadeInAnimation.Duration = new Duration(TimeSpan.FromSeconds(1.0));
+
+            DoubleAnimation canvasFadeInAnimation = new DoubleAnimation();
+            canvasFadeInAnimation.From = canvasFrom;
+            canvasFadeInAnimation.To = canvasTo;
+            canvasFadeInAnimation.Duration = new Duration(TimeSpan.FromSeconds(1.0));
+
+            Storyboard.SetTarget(recFadeInAnimation, volumeRect);
+            Storyboard.SetTargetProperty(recFadeInAnimation, new PropertyPath("Opacity"));
+
+            Storyboard.SetTarget(canvasFadeInAnimation, volumeCanvas);
+            Storyboard.SetTargetProperty(canvasFadeInAnimation, new PropertyPath("Opacity"));
+
+            sb.Children.Add(canvasFadeInAnimation);
+            sb.Children.Add(recFadeInAnimation);
+
+            return sb;
+        }
+
+        private void pauseMusic_Click(object sender, EventArgs e)
+        {
+            if (paused)
+            {
+                var answer = MessageBox.Show("Are you sure you want to start playing " + currentSong.song.title + " ?", "Play the Playlist?", MessageBoxButton.OKCancel);
+                if (answer == MessageBoxResult.Cancel)
+                {
+                }
+                else
+                {
+                    ApplicationBarIconButton btn = (ApplicationBarIconButton)ApplicationBar.Buttons[1];
+                    btn.IconUri = new Uri("icons/appbar.transport.pause.rest.png", UriKind.Relative);
+                    loadingProgressBar.IsLoading = true;
+                    NetworkCalls<List<string>>.pauseBefore(currentUser, connectedPlayer, "playing");
+
+                    paused = false;
+
+                }
+            }
+            else
+            {
+                var answer = MessageBox.Show("Are you sure you want to pause " + currentSong.song.title + "?", "Pause the Playlist?", MessageBoxButton.OKCancel);
+                if (answer == MessageBoxResult.Cancel)
+                {
+                }
+                else
+                {
+                    ApplicationBarIconButton btn = (ApplicationBarIconButton)ApplicationBar.Buttons[1];
+                    btn.IconUri = new Uri("icons/appbar.transport.play.rest.png", UriKind.Relative);
+                    loadingProgressBar.IsLoading = true;
+                    NetworkCalls<List<string>>.pauseBefore(currentUser, connectedPlayer, "paused");
+
+                    paused = true;
+
+                }
+            }
+        }
+
+        private void volSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            volNum.Text = Convert.ToInt16(volSlider.Value).ToString();
+        }
+
+        private void volCancel_Tap(object sender, System.Windows.Input.GestureEventArgs e)
+        {
+            volFadeOut();
+            isVolOpen = false;
+        }
+
+        private void volOK_Tap(object sender, System.Windows.Input.GestureEventArgs e)
+        {
+            loadingProgressBar.IsLoading = true;
+            connectedPlayer.volume = Convert.ToInt16(volNum.Text);
+            NetworkCalls<List<string>>.volumeBefore(currentUser, connectedPlayer, volNum.Text);
+            isVolOpen = false;
+            volFadeOut();
         }
 
         
